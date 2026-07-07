@@ -101,21 +101,3 @@ The native quick panel import window lets you create a panel from FFXIV's built-
 
 <img src=assets/en/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
 
-
-## Building
-
-Requirements: .NET SDK matching the current Dalamud API level and a working Dalamud dev environment.
-
-```bash
-dotnet build EnhancedQuickPanel/EnhancedQuickPanel.csproj -c Release
-```
-
-The build output (including the localization files and style presets) is written to `EnhancedQuickPanel/bin/Release`.
-
-## Credits
-
-- Built with [Dalamud](https://github.com/goatcorp/Dalamud), [ECommons](https://github.com/NightmareXIV/ECommons), and MirageUI.
-
-## License
-
-See the repository for license details.
