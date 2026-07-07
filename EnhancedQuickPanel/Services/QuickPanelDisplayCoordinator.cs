@@ -15,33 +15,25 @@ internal static unsafe class QuickPanelDisplayCoordinator
     {
         switch (C.DisplayMode)
         {
+            // Native mode: let the game open the native quick panel as usual.
+            // The plugin overlay is controlled separately (via /eqp), so leave it untouched.
             case QuickPanelDisplayMode.NativeOnly:
                 original(agent, panel, closeIfAlreadyOpen, showFirstTimeHelp);
-                C.Enabled = false;
                 break;
 
+            // Plugin mode: suppress the native quick panel and toggle the overlay.
             case QuickPanelDisplayMode.PluginOnly:
-                C.Enabled = !C.Enabled;
-                QuickPanelAddon.HideNative();
+                ToggleOverlayRequest?.Invoke();
                 break;
         }
-
-        EzConfig.Save();
     }
 
     public static void ApplyFrameRules()
     {
-        switch (C.DisplayMode)
-        {
-            case QuickPanelDisplayMode.NativeOnly:
-                if (C.Enabled)
-                    C.Enabled = false;
-                break;
-
-            case QuickPanelDisplayMode.PluginOnly:
-                QuickPanelAddon.SuppressNativeIfVisible();
-                break;
-        }
+        // The overlay's visibility is independent of the display mode; only keep the native
+        // quick panel hidden while in plugin mode.
+        if (C.DisplayMode == QuickPanelDisplayMode.PluginOnly)
+            QuickPanelAddon.SuppressNativeIfVisible();
     }
 
     public static void SetDisplayMode(QuickPanelDisplayMode mode)
@@ -51,16 +43,10 @@ internal static unsafe class QuickPanelDisplayCoordinator
 
         C.DisplayMode = mode;
 
-        switch (mode)
-        {
-            case QuickPanelDisplayMode.NativeOnly:
-                C.Enabled = false;
-                break;
-
-            case QuickPanelDisplayMode.PluginOnly:
-                QuickPanelAddon.HideNative();
-                break;
-        }
+        // Switching to plugin mode immediately hides any currently visible native panel.
+        // The overlay itself is not touched here; it stays under /eqp control.
+        if (mode == QuickPanelDisplayMode.PluginOnly)
+            QuickPanelAddon.HideNative();
 
         EzConfig.Save();
     }

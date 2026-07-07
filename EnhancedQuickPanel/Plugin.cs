@@ -13,6 +13,7 @@ public sealed class Plugin : IDalamudPlugin
     public string Name => "Enhanced Quick Panel";
 
     internal static Configuration C = null!;
+    internal static Action? ToggleOverlayRequest;
 
     private readonly WindowSystem _windows = new("EnhancedQuickPanel");
     private readonly PanelOverlayWindow _overlayWindow = new();
@@ -36,6 +37,7 @@ public sealed class Plugin : IDalamudPlugin
         Svc.ClientState.TerritoryChanged += OnTerritoryChanged;
 
         _windows.AddWindow(_overlayWindow);
+        ToggleOverlayRequest = () => _overlayWindow.ToggleVisibility();
         Svc.PluginInterface.UiBuilder.Draw += _windows.Draw;
         Svc.PluginInterface.UiBuilder.Draw += OnDraw;
         Svc.PluginInterface.UiBuilder.OpenMainUi += ToggleOverlay;
@@ -92,6 +94,7 @@ public sealed class Plugin : IDalamudPlugin
         Svc.PluginInterface.UiBuilder.OpenMainUi -= ToggleOverlay;
         Svc.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         _nativeInterceptor?.Dispose();
+        ToggleOverlayRequest = null;
         TextCommandExecutor.CancelPending();
         CustomIconRegistry.Dispose();
         _windows.RemoveAllWindows();

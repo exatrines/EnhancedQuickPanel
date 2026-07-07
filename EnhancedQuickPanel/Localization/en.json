@@ -16,7 +16,7 @@
   "config.header.showEditButton": "Show edit button",
   "config.quickPanel.title": "Quick Panel",
   "config.quickPanel.description": "Choose which panel appears when /quickpanel is used.",
-  "config.quickPanel.replaceNative": "Show the quick panel overlay instead of the native quick panel when /quickpanel is used",
+  "config.quickPanel.replaceNative": "Toggle the quick panel overlay instead of the native quick panel when /quickpanel is used",
   "config.quickPanel.native": "Native",
   "config.quickPanel.plugin": "Plugin",
   "config.import.title": "Import",

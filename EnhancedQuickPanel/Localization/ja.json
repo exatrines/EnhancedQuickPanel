@@ -188,7 +188,7 @@
   "config.style.presetUnavailable": "スタイルプリセットを読み込めませんでした。",
   "command.enhancedquickpanel.help": "クイックパネルオーバーレイの表示・非表示を切り替えます。\n/enhancedquickpanel settings → 設定ウィンドウの表示・非表示を切り替えます。",
   "command.eqp.help": "/enhancedquickpanel のエイリアスです。",
-  "config.quickPanel.replaceNative": "/quickpanel 実行時にネイティブクイックパネルの代わりにクイックパネルオーバーレイを表示する",
+  "config.quickPanel.replaceNative": "/quickpanel 実行時にネイティブクイックパネルの代わりにオーバーレイを表示・非表示する",
   "config.style.presetDescription": "組み込みのスタイルプリセットを適用します。",
   "config.header.showEmptySlotBorder": "空スロットの枠を表示する",
   "slot.tooltip.gearSet": "ギアセット #{0}",

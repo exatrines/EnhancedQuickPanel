@@ -50,7 +50,7 @@ public sealed class PanelOverlayWindow : Window
     }
 
     public override bool DrawConditions() =>
-        C.DisplayMode != QuickPanelDisplayMode.NativeOnly && C.Enabled && GameModuleGuard.IsClientReady;
+        C.Enabled && GameModuleGuard.IsClientReady;
 
     public override void PreDraw()
     {
