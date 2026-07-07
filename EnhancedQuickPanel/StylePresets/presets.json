@@ -1,0 +1,5 @@
+[
+  { "id": "white", "file": "White.json", "displayName": "White" },
+  { "id": "gray", "file": "Gray.json", "displayName": "Gray" },
+  { "id": "black", "file": "Black.json", "displayName": "Black" }
+]

@@ -1,0 +1,16 @@
+{
+  "Author": "mirage",
+  "Name": "Enhanced Quick Panel",
+  "Punchline": "A customizable quick panel overlay.",
+  "Description": "A customizable quick panel overlay for actions, items, macros, and text commands, with multiple pages and style presets.",
+  "InternalName": "EnhancedQuickPanel",
+  "IconUrl": "https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/assets/images/EnhancedQuickPanel.png",
+  "AssemblyVersion": "0.1.0.0",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": "15",
+  "Tags": [
+    "quickpanel",
+    "commandpanel",
+    "ui"
+  ]
+}

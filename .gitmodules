@@ -1,0 +1,6 @@
+[submodule "ECommons"]
+	path = ECommons
+	url = https://github.com/NightmareXIV/ECommons.git
+[submodule "MirageUI"]
+	path = MirageUI
+	url = https://github.com/exatrines/MirageUI.git
