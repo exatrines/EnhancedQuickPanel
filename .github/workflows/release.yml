@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0.0). Must match EnhancedQuickPanel.json AssemblyVersion."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  DALAMUD_HOME: /tmp/dalamud
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Resolve version from tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Release version: $VERSION (tag $TAG)"
+
+      - name: Verify manifest version
+        run: |
+          EXPECTED=$(jq -r '.AssemblyVersion' EnhancedQuickPanel/EnhancedQuickPanel.json)
+          if [[ "$EXPECTED" != "$VERSION" ]]; then
+            echo "EnhancedQuickPanel.json AssemblyVersion ($EXPECTED) does not match tag ($VERSION)." >&2
+            echo "Run: bash .github/scripts/bump-version.sh $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download Dalamud
+        run: |
+          mkdir -p "$DALAMUD_HOME"
+          curl -fsSL https://goatcorp.github.io/dalamud-distrib/latest.zip -o /tmp/dalamud.zip
+          unzip -q /tmp/dalamud.zip -d "$DALAMUD_HOME"
+
+      - name: Restore and build
+        run: |
+          dotnet restore EnhancedQuickPanel.sln
+          dotnet build EnhancedQuickPanel/EnhancedQuickPanel.csproj -c Release --no-restore
+
+      - name: Sync plugin manifest
+        run: RELEASE_VERSION="$VERSION" bash .github/scripts/sync-plugin-manifest.sh
+
+      - name: Pack plugin zip
+        run: |
+          cd EnhancedQuickPanel/bin/Release
+          zip -r EnhancedQuickPanel.zip \
+            EnhancedQuickPanel.dll \
+            EnhancedQuickPanel.json \
+            ECommons.dll \
+            MirageUI.dll \
+            Assets/EnhancedQuickPanel.png \
+            Localization/en.json \
+            Localization/ja.json \
+            StylePresets/White.json \
+            StylePresets/Gray.json \
+            StylePresets/Black.json \
+            StylePresets/presets.json
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          TITLE="Enhanced Quick Panel ${VERSION}"
+          if [[ -f .release-prerelease ]]; then
+            PRERELEASE="--prerelease"
+            TITLE="Enhanced Quick Panel ${VERSION} (test)"
+          fi
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              --repo "${{ github.repository }}" \
+              --clobber \
+              EnhancedQuickPanel/bin/Release/EnhancedQuickPanel.zip
+            if [[ -n "$PRERELEASE" ]]; then
+              gh release edit "$TAG" \
+                --repo "${{ github.repository }}" \
+                --prerelease \
+                --title "$TITLE"
+            else
+              gh release edit "$TAG" \
+                --repo "${{ github.repository }}" \
+                --prerelease=false \
+                --latest \
+                --title "$TITLE"
+            fi
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TITLE" \
+              --generate-notes \
+              $PRERELEASE \
+              EnhancedQuickPanel/bin/Release/EnhancedQuickPanel.zip
+          fi

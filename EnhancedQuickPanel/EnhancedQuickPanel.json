@@ -6,6 +6,9 @@
   "InternalName": "EnhancedQuickPanel",
   "IconUrl": "https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/assets/images/EnhancedQuickPanel.png",
   "AssemblyVersion": "0.1.0.0",
+  "RepoUrl": "https://github.com/exatrines/EnhancedQuickPanel",
+  "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v0.1.0.0/EnhancedQuickPanel.zip",
+  "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v0.1.0.0/EnhancedQuickPanel.zip",
   "ApplicableVersion": "any",
   "DalamudApiLevel": "15",
   "Tags": [
