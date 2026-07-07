@@ -101,21 +101,3 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 <img src=assets/ja/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
 
-
-## ビルド
-
-必要環境: 現在の Dalamud API レベルに対応した .NET SDK と、動作する Dalamud 開発環境。
-
-```bash
-dotnet build EnhancedQuickPanel/EnhancedQuickPanel.csproj -c Release
-```
-
-ビルド成果物（ローカライズファイルやスタイルプリセットを含む）は `EnhancedQuickPanel/bin/Release` に出力されます。
-
-## クレジット
-
-- [Dalamud](https://github.com/goatcorp/Dalamud)、[ECommons](https://github.com/NightmareXIV/ECommons)、MirageUI を使用しています。
-
-## ライセンス
-
-ライセンスの詳細はリポジトリを参照してください。
