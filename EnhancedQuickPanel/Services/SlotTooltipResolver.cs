@@ -35,8 +35,8 @@ internal static unsafe class SlotTooltipResolver
         var fallback = FormatFallback(type, commandId);
         if (!ScratchSlotHelper.TryConfigure(type, commandId, scratch =>
             {
-                scratch.LoadIconId();
-                scratch.LoadCostDataForSlot();
+                scratch->LoadIconId();
+                scratch->LoadCostDataForSlot();
             }))
             return fallback;
 
@@ -45,7 +45,7 @@ internal static unsafe class SlotTooltipResolver
 
         try
         {
-            var scratch = hotbar->ScratchSlot;
+            var scratch = &hotbar->ScratchSlot;
             RaptureHotbarModule.HotbarSlotType appearanceType = default;
             uint appearanceId = 0;
             ushort appearanceData = 0;
@@ -54,16 +54,16 @@ internal static unsafe class SlotTooltipResolver
                 &appearanceId,
                 &appearanceData,
                 hotbar,
-                &scratch);
+                scratch);
 
             if (appearanceType == RaptureHotbarModule.HotbarSlotType.Empty || appearanceId == 0)
             {
-                appearanceType = GetAppearanceType(scratch, type);
-                appearanceId = GetAppearanceId(scratch, commandId);
+                appearanceType = GetAppearanceType(*scratch, type);
+                appearanceId = GetAppearanceId(*scratch, commandId);
             }
 
             var name = SeStringTextHelper.ReadPlainText(
-                scratch.GetDisplayNameForSlot(appearanceType, appearanceId));
+                scratch->GetDisplayNameForSlot(appearanceType, appearanceId));
             if (SeStringTextHelper.LooksLikeUnparsedSeString(name))
                 name = string.Empty;
 

@@ -4,23 +4,24 @@ namespace EnhancedQuickPanel.Services;
 
 /// <summary>
 /// Single entry point for scratch-slot mutations. Avoid calling ScratchSlot directly elsewhere.
+/// HotbarSlot contains Utf8String fields; always mutate the module scratch slot in place.
 /// </summary>
-/// <summary>Provides a temporary hotbar slot used to query game data safely.</summary>
 internal static unsafe class ScratchSlotHelper
 {
+    internal delegate void ConfigureScratchSlot(RaptureHotbarModule.HotbarSlot* scratch);
+
     public static bool TryConfigure(
         RaptureHotbarModule.HotbarSlotType type,
         uint commandId,
-        Action<RaptureHotbarModule.HotbarSlot> configure)
+        ConfigureScratchSlot configure)
     {
         if (!GameModuleGuard.TryGetHotbar(out var hotbar, out var uiModule))
             return false;
 
         try
         {
-            var scratch = hotbar->ScratchSlot;
-            scratch.Set(uiModule, type, commandId);
-            configure(scratch);
+            hotbar->ScratchSlot.Set(uiModule, type, commandId);
+            configure(&hotbar->ScratchSlot);
             return true;
         }
         catch (Exception ex)
@@ -37,9 +38,9 @@ internal static unsafe class ScratchSlotHelper
 
         try
         {
-            var scratch = hotbar->ScratchSlot;
-            scratch.Set(uiModule, type, commandId);
-            hotbar->ExecuteSlot(&scratch);
+            hotbar->ScratchSlot.Set(uiModule, type, commandId);
+            hotbar->ScratchSlot.LoadIconId();
+            hotbar->ExecuteSlot(&hotbar->ScratchSlot);
             return true;
         }
         catch (Exception ex)
@@ -63,14 +64,14 @@ internal static unsafe class ScratchSlotHelper
 
         try
         {
-            var scratch = hotbar->ScratchSlot;
-            scratch.Set(uiModule, type, commandId);
+            hotbar->ScratchSlot.Set(uiModule, type, commandId);
 
-            if (scratch.CommandType == RaptureHotbarModule.HotbarSlotType.Empty || scratch.CommandId == 0)
+            if (hotbar->ScratchSlot.CommandType == RaptureHotbarModule.HotbarSlotType.Empty
+                || hotbar->ScratchSlot.CommandId == 0)
                 return false;
 
-            resolvedType = scratch.CommandType;
-            resolvedCommandId = scratch.CommandId;
+            resolvedType = hotbar->ScratchSlot.CommandType;
+            resolvedCommandId = hotbar->ScratchSlot.CommandId;
             return true;
         }
         catch (Exception ex)
@@ -80,4 +81,3 @@ internal static unsafe class ScratchSlotHelper
         }
     }
 }
-

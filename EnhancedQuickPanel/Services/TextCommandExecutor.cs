@@ -20,21 +20,26 @@ internal static class TextCommandExecutor
         var lines = textBody
             .Replace("\r", string.Empty)
             .Split('\n')
-            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
             .ToArray();
 
         if (lines.Length == 0)
             return;
 
         var runId = ++_runId;
-        var startAt = Environment.TickCount64;
+        var scheduleAt = Environment.TickCount64;
 
-        for (var index = 0; index < lines.Length; index++)
+        foreach (var line in lines)
         {
-            Pending.Add(new PendingLine(
-                startAt + index * LineDelayMs,
-                lines[index],
-                runId));
+            if (TryParseWait(line, out var waitMs))
+            {
+                scheduleAt += waitMs;
+                continue;
+            }
+
+            Pending.Add(new PendingLine(scheduleAt, line, runId));
+            scheduleAt += LineDelayMs;
         }
     }
 
@@ -63,6 +68,28 @@ internal static class TextCommandExecutor
         Pending.Clear();
     }
 
-    private static void ExecuteLine(string line) => MacroManager.Execute(line);
-}
+    private static bool TryParseWait(string line, out int waitMs)
+    {
+        waitMs = 0;
+        if (!line.StartsWith("/wait", StringComparison.OrdinalIgnoreCase))
+            return false;
 
+        var parts = line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2 || !int.TryParse(parts[1], out var seconds))
+            return false;
+
+        waitMs = Math.Max(0, seconds) * 1000;
+        return true;
+    }
+
+    private static void ExecuteLine(string line)
+    {
+        GenericHelpers.Safe(() =>
+        {
+            if (line.StartsWith('/'))
+                Chat.ExecuteCommand(line);
+            else
+                Chat.SendMessage(line);
+        });
+    }
+}
