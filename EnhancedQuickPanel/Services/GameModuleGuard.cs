@@ -8,7 +8,7 @@ namespace EnhancedQuickPanel.Services;
 internal static unsafe class GameModuleGuard
 {
     public static bool IsClientReady =>
-        Svc.ClientState is { IsLoggedIn: true };
+        Svc.ClientState.IsLoggedIn || Svc.Objects.LocalPlayer != null;
 
     public static bool TryGetHotbar(out RaptureHotbarModule* hotbar, out UIModule* uiModule)
     {
