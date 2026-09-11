@@ -570,7 +570,7 @@ internal static unsafe class InventorySlotHelper
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Item hotbar resolve failed (#{itemId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Item hotbar resolve failed (#{itemId}): {ex.Message}");
             return false;
         }
     }
@@ -813,7 +813,7 @@ internal static unsafe class InventorySlotHelper
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Inventory container size lookup failed ({container}): {ex.Message}");
+                PluginServices.Log.Debug($"[EQP] Inventory container size lookup failed ({container}): {ex.Message}");
             }
         }
 

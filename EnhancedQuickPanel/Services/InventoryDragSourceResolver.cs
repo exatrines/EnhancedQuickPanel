@@ -26,7 +26,7 @@ internal static unsafe class InventoryDragSourceResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Inventory drag resolve failed: {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Inventory drag resolve failed: {ex.Message}");
             return false;
         }
     }
@@ -271,7 +271,7 @@ internal static unsafe class InventoryDragSourceResolver
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Grid bag-hint scan failed ({candidateGridName}): {ex.Message}");
+                PluginServices.Log.Debug($"[EQP] Grid bag-hint scan failed ({candidateGridName}): {ex.Message}");
             }
         }
 
@@ -296,8 +296,8 @@ internal static unsafe class InventoryDragSourceResolver
         if (!InventoryDragGridHelper.TryMapMainInventoryGridName(candidateGridName, out var candidateBag))
             return false;
 
-        if (!GenericHelpers.TryGetAddonByName<AddonInventoryGrid>(candidateGridName, out var grid)
-            || !GenericHelpers.IsAddonReady((AtkUnitBase*)grid))
+        if (!AddonAccess.TryGetAddonByName<AddonInventoryGrid>(candidateGridName, out var grid)
+            || !AddonAccess.IsAddonReady((AtkUnitBase*)grid))
             return false;
 
         var slots = grid->Slots;
@@ -365,7 +365,7 @@ internal static unsafe class InventoryDragSourceResolver
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Active drag resolve failed ({candidateGridName}): {ex.Message}");
+                PluginServices.Log.Debug($"[EQP] Active drag resolve failed ({candidateGridName}): {ex.Message}");
             }
         }
 
@@ -419,7 +419,7 @@ internal static unsafe class InventoryDragSourceResolver
 
     private static AtkComponentDragDrop* TryGetFloatingPreviewComponent()
     {
-        if (!GenericHelpers.TryGetAddonByName<AddonDragDrop>("DragDropS", out var dragPreviewAddon))
+        if (!AddonAccess.TryGetAddonByName<AddonDragDrop>("DragDropS", out var dragPreviewAddon))
             return null;
 
         return NativeQuickPanelUiReader.TryFindDragDropComponent(

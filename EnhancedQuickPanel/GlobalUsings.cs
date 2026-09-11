@@ -1,0 +1,14 @@
+global using System;
+global using System.Collections.Generic;
+global using System.IO;
+global using System.Linq;
+global using System.Numerics;
+global using System.Threading.Tasks;
+global using Dalamud.Plugin;
+global using Dalamud.Bindings.ImGui;
+global using Dalamud.Interface.Utility;
+global using EnhancedQuickPanel;
+global using MirageUI;
+global using static MirageUI.Ui.MirageLayout;
+global using static EnhancedQuickPanel.I18n;
+global using static EnhancedQuickPanel.Plugin;

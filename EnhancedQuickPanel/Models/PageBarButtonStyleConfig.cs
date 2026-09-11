@@ -43,38 +43,6 @@ public sealed class PageBarButtonStyleConfig
 
     public Vector4 TextHoverColor => new(TextHoverRed, TextHoverGreen, TextHoverBlue, TextHoverAlpha);
 
-    public void SetBgColor(Vector4 color)
-    {
-        BgRed = color.X;
-        BgGreen = color.Y;
-        BgBlue = color.Z;
-        BgAlpha = color.W;
-    }
-
-    public void SetBgHoverColor(Vector4 color)
-    {
-        BgHoverRed = color.X;
-        BgHoverGreen = color.Y;
-        BgHoverBlue = color.Z;
-        BgHoverAlpha = color.W;
-    }
-
-    public void SetTextColor(Vector4 color)
-    {
-        TextRed = color.X;
-        TextGreen = color.Y;
-        TextBlue = color.Z;
-        TextAlpha = color.W;
-    }
-
-    public void SetTextHoverColor(Vector4 color)
-    {
-        TextHoverRed = color.X;
-        TextHoverGreen = color.Y;
-        TextHoverBlue = color.Z;
-        TextHoverAlpha = color.W;
-    }
-
     public static PageBarButtonStyleConfig CreateDefault() => new();
 }
 

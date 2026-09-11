@@ -42,7 +42,7 @@ internal static unsafe class SlotCooldownResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Cooldown read failed (scratch): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Cooldown read failed (scratch): {ex.Message}");
             return SlotCooldownInfo.None;
         }
     }
@@ -64,7 +64,7 @@ internal static unsafe class SlotCooldownResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Cooldown read failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Cooldown read failed ({type} #{commandId}): {ex.Message}");
             return SlotCooldownInfo.None;
         }
     }

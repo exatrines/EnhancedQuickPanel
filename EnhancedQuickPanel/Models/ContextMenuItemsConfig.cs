@@ -5,6 +5,8 @@ public sealed class ContextMenuItemsConfig
 {
     public bool? ShowEdit { get; set; }
 
+    public bool? ShowCollapse { get; set; }
+
     public bool? ShowSettings { get; set; }
 
     public bool? ShowExportPage { get; set; }
@@ -17,6 +19,8 @@ public sealed class ContextMenuItemsConfig
 
     public bool IsEditVisible => ShowEdit ?? true;
 
+    public bool IsCollapseVisible => ShowCollapse ?? true;
+
     public bool IsSettingsVisible => ShowSettings ?? true;
 
     public bool IsExportPageVisible => ShowExportPage ?? true;
@@ -28,11 +32,12 @@ public sealed class ContextMenuItemsConfig
     public bool IsCloseVisible => ShowClose ?? true;
 
     public bool HasVisibleItems =>
-        IsEditVisible
-        || IsSettingsVisible
-        || IsExportPageVisible
+        IsSettingsVisible
         || IsImportPageVisible
+        || IsExportPageVisible
         || IsImportNativeVisible
+        || IsEditVisible
+        || IsCollapseVisible
         || IsCloseVisible;
 
     public static ContextMenuItemsConfig CreateDefault() => new();

@@ -1,7 +1,7 @@
+using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using EnhancedQuickPanel.Services;
 using EnhancedQuickPanel.Services.CustomIcons;
-using EnhancedQuickPanel.Services.Localization;
 using EnhancedQuickPanel.UI;
 using MirageUI.Theme;
 
@@ -12,42 +12,63 @@ public sealed class Plugin : IDalamudPlugin
 {
     public string Name => "Enhanced Quick Panel";
 
-    internal static Configuration C = null!;
-    internal static Action? ToggleOverlayRequest;
+    internal static Configuration Config = null!;
+    private static PanelOverlayWindow? _overlayUi;
+    private static ConfigurationWindow? _configUi;
 
     private readonly WindowSystem _windows = new("EnhancedQuickPanel");
-    private readonly PanelOverlayWindow _overlayWindow = new();
-    private QuickPanelNativeInterceptor? _nativeInterceptor;
+    private readonly PanelOverlayWindow _overlayWindow;
+    private readonly ConfigurationWindow _configWindow;
+    private NativeQuickPanelInterceptor? _nativeInterceptor;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
-        ECommonsMain.Init(pluginInterface, this);
-
-        MirageUi.ConfigureTheme(() => MirageColorSettings.CreateDefault());
-        MirageUi.Init(pluginInterface, Svc.Texture, Svc.Log);
-
+        pluginInterface.Create<PluginServices>();
         I18n.Initialize();
 
-        C = EzConfig.Init<Configuration>();
-        C.EnsureDefaults();
+        var store = new ConfigurationStore(PluginServices.PluginInterface.GetPluginConfigDirectory());
+        ConfigurationStore.Active = store;
+        try
+        {
+            Config = store.Load();
+        }
+        catch (Exception ex)
+        {
+            PluginServices.Log.Error($"{ex.Message}\n{ex}");
+            throw;
+        }
+
+        PluginLifetime.Start();
+
+        MirageUi.ConfigureTheme(() => MirageColorSettings.CreateDefault());
+        MirageUi.Init(pluginInterface, PluginServices.Texture, PluginServices.Log);
+
         CustomIconRegistry.Initialize();
+        PluginIconStore.Initialize();
 
-        _nativeInterceptor = new QuickPanelNativeInterceptor();
+        _nativeInterceptor = new NativeQuickPanelInterceptor();
+        _overlayWindow = new PanelOverlayWindow();
+        _configWindow = new ConfigurationWindow();
 
-        Svc.ClientState.TerritoryChanged += OnTerritoryChanged;
+        PluginServices.ClientState.TerritoryChanged += OnTerritoryChanged;
 
         _windows.AddWindow(_overlayWindow);
-        ToggleOverlayRequest = () => _overlayWindow.ToggleVisibility();
-        Svc.PluginInterface.UiBuilder.Draw += _windows.Draw;
-        Svc.PluginInterface.UiBuilder.Draw += OnDraw;
-        Svc.PluginInterface.UiBuilder.OpenMainUi += ToggleOverlay;
+        _windows.AddWindow(_configWindow);
+        _overlayUi = _overlayWindow;
+        _configUi = _configWindow;
+        PluginServices.PluginInterface.UiBuilder.Draw += _windows.Draw;
+        PluginServices.PluginInterface.UiBuilder.Draw += OnDraw;
+        PluginServices.PluginInterface.UiBuilder.OpenMainUi += ToggleOverlay;
+        PluginServices.PluginInterface.UiBuilder.OpenConfigUi += ToggleConfig;
 
-        EzConfigGui.Init(new UI.ConfigWindow(), windowType: EzConfigGui.WindowType.Config);
-        Svc.PluginInterface.UiBuilder.OpenConfigUi -= EzConfigGui.Open;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi += ToggleConfig;
-
-        EzCmd.Add("/enhancedquickpanel", HandleChatCommand, T("command.enhancedquickpanel.help"));
-        EzCmd.Add("/eqp", HandleChatCommand, T("command.eqp.help"));
+        PluginServices.Commands.AddHandler("/enhancedquickpanel", new CommandInfo(HandleChatCommand)
+        {
+            HelpMessage = T("command.enhancedquickpanel.help"),
+        });
+        PluginServices.Commands.AddHandler("/eqp", new CommandInfo(HandleChatCommand)
+        {
+            HelpMessage = T("command.eqp.help"),
+        });
     }
 
     private void HandleChatCommand(string command, string args)
@@ -61,46 +82,46 @@ public sealed class Plugin : IDalamudPlugin
         ToggleOverlay();
     }
 
-    private void ToggleOverlay() => _overlayWindow.ToggleVisibility();
-
     private static void OnDraw()
     {
         TextCommandExecutor.ProcessPending();
     }
 
-    private static void ToggleConfig()
-    {
-        if (EzConfigGui.Window == null)
-        {
-            EzConfigGui.Open();
-            return;
-        }
+    internal static void ToggleOverlay() => _overlayUi?.ToggleVisibility();
 
-        EzConfigGui.Window.IsOpen = !EzConfigGui.Window.IsOpen;
+    internal static void ToggleConfig()
+    {
+        if (_configUi == null)
+            return;
+
+        _configUi.IsOpen = !_configUi.IsOpen;
     }
 
-    private static void OnTerritoryChanged(uint _)
+    private void OnTerritoryChanged(uint _)
     {
         SlotIconResolver.ClearCache();
-        QuickPanelUiCache.Invalidate();
+        NativeQuickPanelUiCache.Invalidate();
         SlotRuntimeCache.Invalidate();
     }
 
     public void Dispose()
     {
-        Svc.ClientState.TerritoryChanged -= OnTerritoryChanged;
-        Svc.PluginInterface.UiBuilder.Draw -= _windows.Draw;
-        Svc.PluginInterface.UiBuilder.Draw -= OnDraw;
-        Svc.PluginInterface.UiBuilder.OpenMainUi -= ToggleOverlay;
-        Svc.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
+        PluginLifetime.BeginStop();
+        PluginServices.Commands.RemoveHandler("/enhancedquickpanel");
+        PluginServices.Commands.RemoveHandler("/eqp");
+        PluginServices.ClientState.TerritoryChanged -= OnTerritoryChanged;
+        PluginServices.PluginInterface.UiBuilder.Draw -= _windows.Draw;
+        PluginServices.PluginInterface.UiBuilder.Draw -= OnDraw;
+        PluginServices.PluginInterface.UiBuilder.OpenMainUi -= ToggleOverlay;
+        PluginServices.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         _nativeInterceptor?.Dispose();
-        ToggleOverlayRequest = null;
         TextCommandExecutor.CancelPending();
+        PluginIconStore.Dispose();
         CustomIconRegistry.Dispose();
         _windows.RemoveAllWindows();
         MirageUi.Dispose();
-        ECommonsMain.Dispose();
-        C = null!;
+        _overlayUi = null;
+        _configUi = null;
+        Config = null!;
     }
 }
-

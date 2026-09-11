@@ -36,26 +36,6 @@ internal static class MacroIconCategoryExtensions
         MacroIconCategory.QuickChat,
     ];
 
-    internal static string CommandKeyword(this MacroIconCategory category) => category switch
-    {
-        MacroIconCategory.Action => "action",
-        MacroIconCategory.MacroIcon => "macroicon",
-        MacroIconCategory.Emote => "emote",
-        MacroIconCategory.Buddy => "buddy",
-        MacroIconCategory.Pet => "pet",
-        MacroIconCategory.Minion => "minion",
-        MacroIconCategory.Mount => "mount",
-        MacroIconCategory.Item => "item",
-        MacroIconCategory.Marking => "marking",
-        MacroIconCategory.FieldMarking => "fieldmarking",
-        MacroIconCategory.ClassJob => "classjob",
-        MacroIconCategory.QuickChat => "quickchat",
-        _ => "action",
-    };
-
-    internal static bool OmitCategoryInCommand(this MacroIconCategory category) =>
-        category == MacroIconCategory.Action;
-
     internal static string DisplayName(this MacroIconCategory category) => category switch
     {
         MacroIconCategory.Action => T("macroIcon.category.action"),

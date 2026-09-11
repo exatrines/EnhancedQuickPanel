@@ -1,4 +1,4 @@
-﻿using ECommons.ExcelServices;
+using EnhancedQuickPanel.Services;
 using Lumina.Excel.Sheets;
 using GameAction = Lumina.Excel.Sheets.Action;
 
@@ -84,7 +84,7 @@ internal static class MacroIconLookup
             return true;
         }
 
-        var row = Svc.Data.GetExcelSheet<TextCommandParam>()?.GetRowOrDefault((uint)category);
+        var row = PluginServices.Data.GetExcelSheet<TextCommandParam>()?.GetRowOrDefault((uint)category);
         if (row == null)
             return false;
 
@@ -105,16 +105,16 @@ internal static class MacroIconLookup
 
     private static uint GetSheetIcon<T>(uint rowId, Func<T, uint> getIcon) where T : struct, Lumina.Excel.IExcelRow<T>
     {
-        var row = Svc.Data.GetExcelSheet<T>()?.GetRowOrDefault(rowId);
+        var row = PluginServices.Data.GetExcelSheet<T>()?.GetRowOrDefault(rowId);
         return row == null ? 0 : getIcon(row.Value);
     }
 
     private static uint GetClassJobIcon(uint rowId)
     {
-        if (rowId > byte.MaxValue || !Enum.IsDefined(typeof(Job), (byte)rowId))
+        if (PluginServices.Data.GetExcelSheet<ClassJob>()?.GetRowOrDefault(rowId) == null)
             return 0;
 
-        return (uint)((Job)(byte)rowId).GetIcon();
+        return rowId == 0 ? 62143u : 62100u + rowId;
     }
 
     private static bool IsLoadableIcon(uint iconId) => iconId is > 0 and <= ResolvedSlotIcon.MaxResolvableIconId;
@@ -185,7 +185,7 @@ internal static class MacroIconLookup
     private static Dictionary<uint, MacroIconCategory> BuildTextCommandCategoryMap()
     {
         var map = new Dictionary<uint, MacroIconCategory>();
-        var sheet = Svc.Data.GetExcelSheet<TextCommandParam>();
+        var sheet = PluginServices.Data.GetExcelSheet<TextCommandParam>();
         if (sheet == null)
             return map;
 
@@ -204,7 +204,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildActionIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<GameAction>();
+        var sheet = PluginServices.Data.GetExcelSheet<GameAction>();
         if (sheet == null)
             return [];
 
@@ -226,7 +226,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildEmoteIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<Emote>();
+        var sheet = PluginServices.Data.GetExcelSheet<Emote>();
         if (sheet == null)
             return [];
 
@@ -245,7 +245,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildBuddyActionIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<BuddyAction>();
+        var sheet = PluginServices.Data.GetExcelSheet<BuddyAction>();
         if (sheet == null)
             return [];
 
@@ -264,7 +264,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildPetActionIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<PetAction>();
+        var sheet = PluginServices.Data.GetExcelSheet<PetAction>();
         if (sheet == null)
             return [];
 
@@ -283,7 +283,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildMinionIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<Companion>();
+        var sheet = PluginServices.Data.GetExcelSheet<Companion>();
         if (sheet == null)
             return [];
 
@@ -302,7 +302,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildMountIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<Mount>();
+        var sheet = PluginServices.Data.GetExcelSheet<Mount>();
         if (sheet == null)
             return [];
 
@@ -321,7 +321,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildItemIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<Item>();
+        var sheet = PluginServices.Data.GetExcelSheet<Item>();
         if (sheet == null)
             return [];
 
@@ -340,7 +340,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildMarkingIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<Marker>();
+        var sheet = PluginServices.Data.GetExcelSheet<Marker>();
         if (sheet == null)
             return [];
 
@@ -368,7 +368,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildFieldMarkingIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<FieldMarker>();
+        var sheet = PluginServices.Data.GetExcelSheet<FieldMarker>();
         if (sheet == null)
             return [];
 
@@ -401,27 +401,9 @@ internal static class MacroIconLookup
         return DeduplicateByName(entries);
     }
 
-    private static MacroIconEntry TryResolveMarkingParamAlias(string paramName)
-    {
-        var compact = NormalizeCompact(paramName);
-        foreach (var (param, rowId) in MarkingParamAliases)
-        {
-            if (!NormalizeCompact(param).Equals(compact, StringComparison.Ordinal))
-                continue;
-
-            var row = Svc.Data.GetExcelSheet<Marker>()?.GetRowOrDefault(rowId);
-            if (row == null || row.Value.Icon == 0)
-                return default;
-
-            return new MacroIconEntry(MacroIconCategory.Marking, param, (uint)row.Value.Icon, rowId);
-        }
-
-        return default;
-    }
-
     private static List<MacroIconEntry> BuildClassJobIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<ClassJob>();
+        var sheet = PluginServices.Data.GetExcelSheet<ClassJob>();
         if (sheet == null)
             return [];
 
@@ -430,14 +412,8 @@ internal static class MacroIconLookup
         {
             var name = row.Name.ToString();
             var abbreviation = row.Abbreviation.ToString();
-            if (row.RowId > byte.MaxValue)
-                continue;
-
-            if (!Enum.IsDefined(typeof(Job), (byte)row.RowId))
-                continue;
-
-            var icon = (uint)((Job)(byte)row.RowId).GetIcon();
-            if (icon == 0)
+            var icon = GetClassJobIcon(row.RowId);
+            if (!IsLoadableIcon(icon))
                 continue;
 
             if (!string.IsNullOrWhiteSpace(name))
@@ -455,7 +431,7 @@ internal static class MacroIconLookup
 
     private static List<MacroIconEntry> BuildQuickChatIndex()
     {
-        var sheet = Svc.Data.GetExcelSheet<QuickChat>();
+        var sheet = PluginServices.Data.GetExcelSheet<QuickChat>();
         if (sheet == null)
             return [];
 
@@ -478,30 +454,6 @@ internal static class MacroIconLookup
             .Select(group => group.First())
             .OrderBy(entry => entry.Name, StringComparer.Ordinal)
             .ToList();
-
-    private static MacroIconEntry TryResolveMarkingParam(
-        List<MacroIconEntry> entries,
-        string normalized,
-        string compact)
-    {
-        if (IsBareWaymarkNumber(compact))
-            return default;
-
-        foreach (var entry in entries)
-        {
-            var entryNormalized = Normalize(entry.Name);
-            var entryCompact = NormalizeCompact(entry.Name);
-            if (entryNormalized.Equals(normalized, StringComparison.Ordinal)
-                || entryCompact.Equals(compact, StringComparison.Ordinal)
-                || entryCompact.Contains(compact, StringComparison.Ordinal)
-                || compact.Contains(entryCompact, StringComparison.Ordinal))
-            {
-                return entry;
-            }
-        }
-
-        return default;
-    }
 
     internal static IReadOnlyList<MacroIconEntry> GetCategoryEntries(MacroIconCategory category)
     {
@@ -534,27 +486,6 @@ internal static class MacroIconLookup
             .ToList();
     }
 
-    internal static IReadOnlyList<string> GetNamesForIconId(uint iconId)
-    {
-        EnsureInitialized();
-        if (iconId is 0 or > ResolvedSlotIcon.MaxResolvableIconId)
-            return [];
-
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entries in Indexes.Values)
-        {
-            foreach (var entry in entries)
-            {
-                if (entry.IconId != iconId || string.IsNullOrWhiteSpace(entry.Name))
-                    continue;
-
-                names.Add(entry.Name);
-            }
-        }
-
-        return names.OrderBy(name => name, StringComparer.Ordinal).ToList();
-    }
-
     private static bool IsBrowsableEntry(MacroIconEntry entry) =>
         IsLoadableIcon(entry.IconId) && !ExcludedBrowsableIconIds.Contains(entry.IconId);
 
@@ -570,63 +501,6 @@ internal static class MacroIconLookup
         return false;
     }
 
-    private static string NormalizeCompact(string value) =>
-        Normalize(value).Replace(" ", "").Replace("-", "");
-
     private static string Normalize(string value) =>
         value.Trim().ToLowerInvariant();
-
-    internal static bool TryResolveWaymarkName(string name, out MacroIconEntry entry)
-    {
-        entry = default;
-        if (!TryMapWaymarkNameToRowId(name, out var rowId))
-            return false;
-
-        var row = Svc.Data.GetExcelSheet<FieldMarker>()?.GetRowOrDefault(rowId);
-        if (row == null || row.Value.UiIcon == 0)
-            return false;
-
-        entry = new MacroIconEntry(MacroIconCategory.FieldMarking, name.Trim(), row.Value.UiIcon, rowId);
-        return true;
-    }
-
-    private static bool TryMapWaymarkNameToRowId(string name, out uint rowId)
-    {
-        rowId = 0;
-        var trimmed = name.Trim();
-        if (trimmed.Length == 0)
-            return false;
-
-        foreach (var (alias, aliasRowId) in WaymarkNameAliases)
-        {
-            if (!alias.Equals(trimmed, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            rowId = aliasRowId;
-            return true;
-        }
-
-        if (trimmed.Length == 1 && trimmed[0] is >= '１' and <= '４')
-        {
-            rowId = (uint)(trimmed[0] - '１' + 5);
-            return true;
-        }
-
-        if (trimmed.Length == 1 && trimmed[0] is >= 'Ａ' and <= 'Ｄ')
-        {
-            rowId = (uint)(trimmed[0] - 'Ａ' + 1);
-            return true;
-        }
-
-        if (trimmed.Length == 1 && trimmed[0] is >= 'ａ' and <= 'ｄ')
-        {
-            rowId = (uint)(trimmed[0] - 'ａ' + 1);
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsBareWaymarkNumber(string compact) =>
-        TryMapWaymarkNameToRowId(compact, out _);
 }

@@ -1,11 +1,12 @@
 ﻿using System.Collections.Concurrent;
-using System.Net.Http;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
-using ECommons.Configuration;
 using EnhancedQuickPanel.Models;
+using EnhancedQuickPanel.Services;
 
 namespace EnhancedQuickPanel.Services.CustomIcons;
 
@@ -14,14 +15,10 @@ internal static class CustomIconRegistry
 {
     private const string ManifestFileName = "custom-icons.json";
     private const string IconFolderName = "icon";
-    private const int MaxDownloadBytes = 5 * 1024 * 1024;
-
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30),
-    };
 
     private static readonly ConcurrentDictionary<string, ISharedImmediateTexture> TextureCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<int, byte> Running = new();
+    private static int _downloadSeq;
     private static readonly object ManifestLock = new();
 
     private static CustomIconManifest _manifest = new();
@@ -35,8 +32,9 @@ internal static class CustomIconRegistry
 
     public static void Initialize()
     {
-        _iconDirectory = Path.Combine(EzConfig.GetPluginConfigDirectory(), IconFolderName);
-        _manifestPath = Path.Combine(EzConfig.GetPluginConfigDirectory(), ManifestFileName);
+        var configDirectory = PluginServices.PluginInterface.GetPluginConfigDirectory();
+        _iconDirectory = Path.Combine(configDirectory, IconFolderName);
+        _manifestPath = Path.Combine(configDirectory, ManifestFileName);
         Directory.CreateDirectory(_iconDirectory);
         LoadManifest();
         RefreshSortedIcons();
@@ -124,7 +122,7 @@ internal static class CustomIconRegistry
 
         try
         {
-            var shared = TextureCache.GetOrAdd(path, static filePath => Svc.Texture.GetFromFile(filePath));
+            var shared = TextureCache.GetOrAdd(path, static filePath => PluginServices.Texture.GetFromFile(filePath));
             var wrap = shared.GetWrapOrDefault();
             if (wrap == null || wrap.Handle == 0)
                 return false;
@@ -134,7 +132,7 @@ internal static class CustomIconRegistry
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Custom icon texture load failed ({path}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Custom icon texture load failed ({path}): {ex.Message}");
             return false;
         }
     }
@@ -145,7 +143,18 @@ internal static class CustomIconRegistry
     public static void OpenIconFolder()
     {
         Directory.CreateDirectory(_iconDirectory);
-        GenericHelpers.ShellStart(_iconDirectory);
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _iconDirectory,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            PluginLifetime.TryLogError($"{ex.Message}\n{ex.StackTrace ?? string.Empty}");
+        }
     }
 
     public static void RefreshFromDisk()
@@ -159,6 +168,23 @@ internal static class CustomIconRegistry
 
     public static async Task<(bool Success, string Message)> DownloadAndSaveAsync(string url, string name)
     {
+        if (PluginLifetime.IsStopping)
+            return (false, string.Empty);
+
+        var id = Interlocked.Increment(ref _downloadSeq);
+        Running[id] = 0;
+        try
+        {
+            return await DownloadAndSaveCoreAsync(url, name);
+        }
+        finally
+        {
+            Running.TryRemove(id, out var unused);
+        }
+    }
+
+    private static async Task<(bool Success, string Message)> DownloadAndSaveCoreAsync(string url, string name)
+    {
         if (string.IsNullOrWhiteSpace(url))
             return (false, T("customIcon.error.emptyUrl"));
 
@@ -169,41 +195,63 @@ internal static class CustomIconRegistry
         if (string.IsNullOrWhiteSpace(name))
             return (false, T("customIcon.error.emptyName"));
 
+        var token = PluginLifetime.Token;
         try
         {
-            using var response = await HttpClient.GetAsync(uri).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                return (false, T("customIcon.error.downloadStatus", (int)response.StatusCode));
+            var result = await BoundedHttpDownload.GetAsync(uri, token).ConfigureAwait(false);
+            switch (result.Status)
+            {
+                case BoundedDownloadStatus.Success:
+                    break;
+                case BoundedDownloadStatus.Canceled:
+                    return (false, string.Empty);
+                case BoundedDownloadStatus.TooLarge:
+                    return (false, T("customIcon.error.imageTooLarge"));
+                case BoundedDownloadStatus.Empty:
+                    return (false, T("customIcon.error.emptyImage"));
+                case BoundedDownloadStatus.Failed when result.HttpStatus != 0:
+                    return (false, T("customIcon.error.downloadStatus", result.HttpStatus));
+                default:
+                    return (false, T("customIcon.error.downloadFailed", "request failed"));
+            }
 
-            var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-            if (bytes.Length == 0)
-                return (false, T("customIcon.error.emptyImage"));
-
-            if (bytes.Length > MaxDownloadBytes)
-                return (false, T("customIcon.error.imageTooLarge"));
-
-            if (!TryDetectImageExtension(bytes, out var extension))
+            if (!TryDetectImageExtension(result.Bytes, out var extension))
                 return (false, T("customIcon.error.unsupportedFormat"));
 
             CustomIconEntry entry;
-            string filePath;
+            string destPath;
             lock (ManifestLock)
             {
                 entry = CreateEntryLocked(name.Trim(), extension);
-                filePath = GetIconPath(entry);
+                destPath = GetIconPath(entry);
             }
 
-            await File.WriteAllBytesAsync(filePath, bytes).ConfigureAwait(false);
+            var committed = await PluginLifetime.WriteAndCommitAsync(
+                destPath,
+                result.Bytes,
+                token,
+                () =>
+                {
+                    lock (ManifestLock)
+                    {
+                        _manifest.Icons.Add(entry);
+                        SaveManifestLocked();
+                    }
+                }).ConfigureAwait(false);
 
-            lock (ManifestLock)
-                SaveManifestLocked();
+            if (!committed)
+                return (false, string.Empty);
 
             RefreshSortedIcons();
             return (true, string.Empty);
         }
+        catch (Exception ex) when (ex is OperationCanceledException || PluginLifetime.IsStopping)
+        {
+            return (false, string.Empty);
+        }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Custom icon download failed: {ex.Message}");
+            PluginLifetime.TryLogDebug($"[EQP] Custom icon download failed: {ex.Message}");
             return (false, T("customIcon.error.downloadFailed", ex.Message));
         }
     }
@@ -274,14 +322,11 @@ internal static class CustomIconRegistry
     private static CustomIconEntry CreateEntryLocked(string displayName, string extension)
     {
         var fileStem = CreateUniqueFileStem(displayName);
-        var entry = new CustomIconEntry
+        return new CustomIconEntry
         {
             Name = displayName,
             FileName = $"{fileStem}{extension}",
         };
-
-        _manifest.Icons.Add(entry);
-        return entry;
     }
 
     private static string CreateUniqueFileStem(string displayName)
@@ -328,7 +373,7 @@ internal static class CustomIconRegistry
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Custom icon manifest load failed: {ex.Message}");
+                PluginLifetime.TryLogDebug($"[EQP] Custom icon manifest load failed: {ex.Message}");
                 _manifest = new CustomIconManifest();
             }
         }
@@ -351,7 +396,7 @@ internal static class CustomIconRegistry
         }
     }
 
-    private static bool TryDetectImageExtension(ReadOnlySpan<byte> bytes, out string extension)
+    internal static bool TryDetectImageExtension(ReadOnlySpan<byte> bytes, out string extension)
     {
         extension = string.Empty;
         if (bytes.Length >= 8

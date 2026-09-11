@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
-using ECommons.ImGuiMethods;
 using EnhancedQuickPanel.Services.CustomIcons;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
@@ -53,24 +52,7 @@ internal static unsafe class SlotTextureResolver
             }
         }
 
-        if (ThreadLoadImageHandler.TryGetIconTextureWrap(icon.IconId, icon.IsHighQuality, out texture)
-            && IsUsableWrap(texture))
-        {
-            return true;
-        }
-
-        if (icon.IsHighQuality
-            && ThreadLoadImageHandler.TryGetIconTextureWrap(icon.IconId, false, out texture)
-            && IsUsableWrap(texture))
-        {
-            return true;
-        }
-
-        if (TryGetNativeIconTexture(icon.IconId, out texture))
-            return true;
-
-        ThreadLoadImageHandler.TryGetIconTextureWrap(icon.IconId, icon.IsHighQuality, out _);
-        return false;
+        return TryGetNativeIconTexture(icon.IconId, out texture);
     }
 
     private static bool TryGetImmediateGameIconWrap(
@@ -85,7 +67,7 @@ internal static unsafe class SlotTextureResolver
 
         var lookup = new GameIconLookup(iconId, itemHq: isHighQuality, hiRes: hiRes);
 
-        if (Svc.Texture.TryGetFromGameIcon(lookup, out var shared))
+        if (PluginServices.Texture.TryGetFromGameIcon(lookup, out var shared))
         {
             var sharedWrap = shared.GetWrapOrDefault();
             if (sharedWrap != null && IsUsableWrap(sharedWrap))
@@ -101,7 +83,7 @@ internal static unsafe class SlotTextureResolver
             }
         }
 
-        if (Svc.Texture.TryGetIconPath(lookup, out var path)
+        if (PluginServices.Texture.TryGetIconPath(lookup, out var path)
             && TryGetGameTexture(path, out texture))
         {
             return true;
@@ -144,10 +126,7 @@ internal static unsafe class SlotTextureResolver
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
-        if (ThreadLoadImageHandler.TryGetTextureWrap(path, out texture) && IsUsableWrap(texture))
-            return true;
-
-        var wrap = Svc.Texture.GetFromGame(path).GetWrapOrDefault();
+        var wrap = PluginServices.Texture.GetFromGame(path).GetWrapOrDefault();
         if (wrap == null || !IsUsableWrap(wrap))
             return false;
 

@@ -62,7 +62,7 @@ internal static unsafe class SlotDragDropHandler
 
         LogAppliedDrop(slot, snapshot, page, slotIndex);
 
-        EzConfig.Save();
+        Config.Save();
         stage->DragDropManager.CancelDragDrop(allowSoundEffect: true, suppressFlyBack: true);
         RememberAppliedDrop(page, slotIndex);
         return true;
@@ -76,6 +76,11 @@ internal static unsafe class SlotDragDropHandler
         if (!ImGui.IsMouseReleased(ImGuiMouseButton.Left))
             return false;
 
+        return CanActivateSlot(page, slotIndex);
+    }
+
+    public static bool CanActivateSlot(int page, int slotIndex)
+    {
         if (ShouldSuppressSlotClick(page, slotIndex))
             return false;
 
@@ -147,13 +152,13 @@ internal static unsafe class SlotDragDropHandler
 
     private static void LogDragGrab(DragSnapshot snapshot)
     {
-        PluginLog.Debug(
+        PluginServices.Log.Debug(
             $"[EQP] Drag grab click: drag={snapshot.DragType}, payload Int1={snapshot.Int1}, Int2={snapshot.Int2}, ref={snapshot.ReferenceIndex}, macroName={snapshot.MacroName}, ui={snapshot.UiSourceLabel}");
 
         if (TryDescribeGrabbedPayload(snapshot, out var description))
-            PluginLog.Debug($"[EQP] Drag grab resolved: {description}");
+            PluginServices.Log.Debug($"[EQP] Drag grab resolved: {description}");
         else
-            PluginLog.Debug("[EQP] Drag grab resolved: (could not resolve payload)");
+            PluginServices.Log.Debug("[EQP] Drag grab resolved: (could not resolve payload)");
     }
 
     private static void LogAppliedDrop(PanelSlot slot, DragSnapshot snapshot, int page, int slotIndex)
@@ -161,7 +166,7 @@ internal static unsafe class SlotDragDropHandler
         switch (slot.Kind)
         {
             case PanelSlotKind.Macro:
-                PluginLog.Debug(
+                PluginServices.Log.Debug(
                     $"[EQP] Drop applied: page={page + 1}, slot={slotIndex + 1}, kind=Macro, set={slot.MacroSet}, index={slot.MacroIndex}, commandId={slot.CommandId}");
                 return;
 
@@ -171,18 +176,18 @@ internal static unsafe class SlotDragDropHandler
                 if (InventorySlotHelper.IsItemSlotType(slotType))
                 {
                     var (baseItemId, isHq) = InventorySlotHelper.DecodeItemId(slot.CommandId);
-                    PluginLog.Debug(
+                    PluginServices.Log.Debug(
                         $"[EQP] Drop applied item: page={page + 1}, slot={slotIndex + 1}, drag={snapshot.DragType}, type={slotType}, commandId={slot.CommandId}, itemId={baseItemId}, hq={isHq}");
                     return;
                 }
 
-                PluginLog.Debug(
+                PluginServices.Log.Debug(
                     $"[EQP] Drop applied: page={page + 1}, slot={slotIndex + 1}, drag={snapshot.DragType}, type={slotType}, commandId={slot.CommandId}");
                 return;
             }
 
             case PanelSlotKind.TextCommand:
-                PluginLog.Debug(
+                PluginServices.Log.Debug(
                     $"[EQP] Drop applied: page={page + 1}, slot={slotIndex + 1}, kind=TextCommand");
                 return;
         }
@@ -340,7 +345,7 @@ internal static unsafe class SlotDragDropHandler
                 : string.Empty;
 
             var macroName = dragType == DragDropType.Macro
-                ? SeStringTextHelper.ReadPlainText(payload->Text)
+                ? SeStringText.ReadPlainText(payload->Text)
                 : string.Empty;
 
             snapshot = new DragSnapshot(
@@ -354,7 +359,7 @@ internal static unsafe class SlotDragDropHandler
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Active drag read failed: {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Active drag read failed: {ex.Message}");
             return false;
         }
     }
@@ -402,7 +407,7 @@ internal static unsafe class SlotDragDropHandler
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Drag-drop apply failed: {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Drag-drop apply failed: {ex.Message}");
             return false;
         }
     }
@@ -415,6 +420,8 @@ internal static unsafe class SlotDragDropHandler
         slot.IconId = 0;
         slot.Label = string.Empty;
         slot.TextBody = string.Empty;
+        slot.ResetPluginShortcut();
+        slot.ResetDalamudShortcut();
 
         if (resolvedType == RaptureHotbarModule.HotbarSlotType.Macro)
         {

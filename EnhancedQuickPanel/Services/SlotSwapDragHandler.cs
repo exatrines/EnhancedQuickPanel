@@ -1,4 +1,3 @@
-using ECommons.ImGuiMethods;
 using EnhancedQuickPanel.Models;
 
 namespace EnhancedQuickPanel.Services;
@@ -114,9 +113,9 @@ internal static class SlotSwapDragHandler
             && _sourceIndex >= 0
             && _sourceIndex != _hoverSlotIndex)
         {
-            var page = C.Pages[_hoverPage];
+            var page = Config.Pages[_hoverPage];
             SwapSlotContents(page.Slots[_sourceIndex], page.Slots[_hoverSlotIndex]);
-            EzConfig.Save();
+            Config.Save();
             _completedSwap = true;
             _completedSwapPage = _hoverPage;
             _completedSwapIndex = _hoverSlotIndex;
@@ -134,16 +133,6 @@ internal static class SlotSwapDragHandler
         }
     }
 
-    private static void SwapSlotContents(PanelSlot left, PanelSlot right)
-    {
-        (left.Kind, right.Kind) = (right.Kind, left.Kind);
-        (left.CommandType, right.CommandType) = (right.CommandType, left.CommandType);
-        (left.CommandId, right.CommandId) = (right.CommandId, left.CommandId);
-        (left.MacroSet, right.MacroSet) = (right.MacroSet, left.MacroSet);
-        (left.MacroIndex, right.MacroIndex) = (right.MacroIndex, left.MacroIndex);
-        (left.IconId, right.IconId) = (right.IconId, left.IconId);
-        (left.Label, right.Label) = (right.Label, left.Label);
-        (left.TextBody, right.TextBody) = (right.TextBody, left.TextBody);
-    }
+    private static void SwapSlotContents(PanelSlot left, PanelSlot right) =>
+        left.SwapContentsWith(right);
 }
-

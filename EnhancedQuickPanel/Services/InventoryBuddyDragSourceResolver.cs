@@ -124,8 +124,8 @@ internal static unsafe class InventoryBuddyDragSourceResolver
         uiSlotIndex = -1;
         slotComponent = null;
 
-        if (!GenericHelpers.TryGetAddonByName<AddonInventoryBuddy>(addonName, out var buddy)
-            || !GenericHelpers.IsAddonReady((AtkUnitBase*)buddy))
+        if (!AddonAccess.TryGetAddonByName<AddonInventoryBuddy>(addonName, out var buddy)
+            || !AddonAccess.IsAddonReady((AtkUnitBase*)buddy))
             return false;
 
         var slots = buddy->Slots;

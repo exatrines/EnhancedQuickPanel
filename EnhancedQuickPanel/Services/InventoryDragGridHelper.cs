@@ -29,8 +29,8 @@ internal static unsafe class InventoryDragGridHelper
         slotIndex = -1;
         slotComponent = null;
 
-        if (!GenericHelpers.TryGetAddonByName<AddonInventoryGrid>(gridAddonName, out var grid)
-            || !GenericHelpers.IsAddonReady((AtkUnitBase*)grid))
+        if (!AddonAccess.TryGetAddonByName<AddonInventoryGrid>(gridAddonName, out var grid)
+            || !AddonAccess.IsAddonReady((AtkUnitBase*)grid))
             return false;
 
         var slots = grid->Slots;
@@ -92,8 +92,8 @@ internal static unsafe class InventoryDragGridHelper
 
     public static string[] GetOrderedMainInventoryGridNames()
     {
-        if (GenericHelpers.TryGetAddonByName<AddonInventoryExpansion>("InventoryExpansion", out var expansion)
-            && GenericHelpers.IsAddonReady((AtkUnitBase*)expansion))
+        if (AddonAccess.TryGetAddonByName<AddonInventoryExpansion>("InventoryExpansion", out var expansion)
+            && AddonAccess.IsAddonReady((AtkUnitBase*)expansion))
         {
             return
             [

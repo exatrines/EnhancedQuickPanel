@@ -33,7 +33,7 @@ internal static unsafe class SlotChargeResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Action charge read failed ({appearance.SlotType} #{appearance.ActionId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Action charge read failed ({appearance.SlotType} #{appearance.ActionId}): {ex.Message}");
             return (false, 0);
         }
     }

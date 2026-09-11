@@ -10,7 +10,7 @@ internal static class PanelPagePreview
 {
     public static void Draw(PanelPage page, string blockId)
     {
-        C.EnsureDefaults();
+        Config.EnsureDefaults();
 
         if (!GameModuleGuard.IsClientReady)
         {
@@ -20,10 +20,9 @@ internal static class PanelPagePreview
             return;
         }
 
-        var slotSize = C.SlotSize;
-        var spacing = C.SlotPadding;
-        var gridSpan = Configuration.GridSize * slotSize
-            + Math.Max(0, Configuration.GridSize - 1) * spacing;
+        var slotSize = Config.SlotSize;
+        var spacing = Config.SlotPadding;
+        var gridSpan = PanelLayout.ComputeSpan(Configuration.GridSize, slotSize, spacing);
 
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(spacing, spacing));
         using (ImRaii.Child($"##eqpPagePreview/{blockId}", new Vector2(gridSpan, gridSpan), false))
@@ -65,29 +64,38 @@ internal static class PanelPagePreview
             PanelSlotKind.Action => SlotOverlayResolver.Resolve(slot, icon, SlotRuntimeState.Default),
             _ => SlotOverlayInfo.None,
         };
-        SlotBackgroundResolver.DrawBaseFrame(drawList, topLeft, bottomRight, iconGrayedOut: false);
+        var pluginVisual = PluginShortcuts.ResolveVisual(slot);
+        var isGrayedOut = PluginShortcuts.IsDimmed(pluginVisual);
+        var iconTint = isGrayedOut
+            ? ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.5f, 0.5f, 1f))
+            : uint.MaxValue;
+        SlotChromeDrawer.DrawBaseFrame(drawList, topLeft, bottomRight, iconGrayedOut: isGrayedOut);
 
-        if (icon.IsValid
-            && SlotTextureResolver.TryGetSlotTexture(icon, out var texture)
-            && SafeTextureDraw.TryAddImage(drawList, texture, topLeft, bottomRight, uint.MaxValue))
+        if ((PluginShortcuts.TryGetIcon(slot, out var texture)
+            || (icon.IsValid && SlotTextureResolver.TryGetSlotTexture(icon, out texture)))
+            && SafeTextureDraw.TryAddImage(drawList, texture, topLeft, bottomRight, iconTint))
         {
-            IconFrameResolver.DrawIconFrame(drawList, topLeft, bottomRight, isGrayedOut: false);
+            SlotChromeDrawer.DrawIconFrame(drawList, topLeft, bottomRight, isGrayedOut);
+        }
+        else if (DalamudShortcuts.TryDrawIcon(drawList, topLeft, bottomRight, slot, iconTint))
+        {
+            SlotChromeDrawer.DrawIconFrame(drawList, topLeft, bottomRight, isGrayedOut);
         }
 
         if (overlay.ShowMacroIndicator)
             DrawMacroIndicator(drawList, topLeft, bottomRight);
 
         if (overlay.ShowActionCharges)
-            DrawCornerText(drawList, topLeft, bottomRight, overlay.ActionCharges.ToString(), C.ChargeLabelStyle);
+            DrawCornerText(drawList, topLeft, bottomRight, overlay.ActionCharges.ToString(), Config.ChargeLabelStyle);
         else if (overlay.ShowQuantity)
-            DrawCornerText(drawList, topLeft, bottomRight, $"x{overlay.Quantity}", C.QuantityLabelStyle);
+            DrawCornerText(drawList, topLeft, bottomRight, $"x{overlay.Quantity}", Config.QuantityLabelStyle);
     }
 
     private static void DrawMacroIndicator(ImDrawListPtr drawList, Vector2 slotMin, Vector2 slotMax)
     {
         var iconText = FontAwesomeIcon.Cog.ToIconString();
         var iconFont = UiBuilder.IconFont;
-        var fontSize = SlotOverlayFontSizeResolver.ResolveFontSize(C.SlotSize, C.MacroGearLabelStyle);
+        var fontSize = SlotOverlayFontSizeResolver.ResolveFontSize(Config.SlotSize, Config.MacroGearLabelStyle);
         Vector2 textSize;
         using (ImRaii.PushFont(iconFont))
             textSize = ImGui.CalcTextSize(iconText) * (fontSize / ImGui.GetFontSize());
@@ -99,7 +107,7 @@ internal static class PanelPagePreview
             fontSize,
             pos,
             iconText,
-            C.MacroGearLabelStyle,
+            Config.MacroGearLabelStyle,
             OverlayLabelLetterSpacing.Default,
             isGrayedOut: false);
     }
@@ -111,7 +119,7 @@ internal static class PanelPagePreview
         string text,
         OverlayLabelStyleConfig style)
     {
-        var fontSize = SlotOverlayFontSizeResolver.ResolveFontSize(C.SlotSize, style);
+        var fontSize = SlotOverlayFontSizeResolver.ResolveFontSize(Config.SlotSize, style);
         var textSize = SlotOverlayTextRenderer.MeasureTextSize(
             text,
             ImGui.GetFont(),
@@ -131,4 +139,3 @@ internal static class PanelPagePreview
             isGrayedOut: false);
     }
 }
-

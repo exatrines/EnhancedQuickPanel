@@ -11,6 +11,11 @@ internal static unsafe class SlotTooltipResolver
 {
     public static string Resolve(PanelSlot slot)
     {
+        if (slot.Kind == PanelSlotKind.Plugin)
+            return ResolvePluginTooltip(slot);
+        if (slot.Kind == PanelSlotKind.Dalamud)
+            return DalamudShortcuts.DisplayName(slot);
+
         if (!string.IsNullOrWhiteSpace(slot.Label))
             return slot.Label.Trim();
 
@@ -33,7 +38,7 @@ internal static unsafe class SlotTooltipResolver
             return string.Empty;
 
         var fallback = FormatFallback(type, commandId);
-        if (!ScratchSlotHelper.TryConfigure(type, commandId, scratch =>
+        if (!HotbarScratchSlot.TryConfigure(type, commandId, scratch =>
             {
                 scratch->LoadIconId();
                 scratch->LoadCostDataForSlot();
@@ -62,16 +67,16 @@ internal static unsafe class SlotTooltipResolver
                 appearanceId = GetAppearanceId(*scratch, commandId);
             }
 
-            var name = SeStringTextHelper.ReadPlainText(
+            var name = SeStringText.ReadPlainText(
                 scratch->GetDisplayNameForSlot(appearanceType, appearanceId));
-            if (SeStringTextHelper.LooksLikeUnparsedSeString(name))
+            if (SeStringText.LooksLikeUnparsedSeString(name))
                 name = string.Empty;
 
             return string.IsNullOrWhiteSpace(name) ? fallback : name;
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Tooltip read failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Tooltip read failed ({type} #{commandId}): {ex.Message}");
             return fallback;
         }
     }
@@ -85,11 +90,21 @@ internal static unsafe class SlotTooltipResolver
 
         var native = ResolveNative(type, commandId);
         if (!IsFallbackLabel(native, type, commandId)
-            && !SeStringTextHelper.LooksLikeUnparsedSeString(native))
+            && !SeStringText.LooksLikeUnparsedSeString(native))
             return native;
 
         var lumina = ResolveLuminaTooltip(type, commandId);
         return string.IsNullOrWhiteSpace(lumina) ? native : lumina;
+    }
+
+    private static string ResolvePluginTooltip(PanelSlot slot)
+    {
+        var name = !string.IsNullOrWhiteSpace(slot.Label)
+            ? slot.Label.Trim()
+            : PluginShortcuts.Find(slot.PluginInternalName)?.Name ?? slot.PluginInternalName;
+        if (PluginShortcuts.ResolveVisual(slot) != PluginShortcutVisual.Disabled)
+            return name;
+        return T("slot.tooltip.pluginDisabled", name);
     }
 
     private static string ResolveMacroTooltip(PanelSlot slot)
@@ -101,14 +116,14 @@ internal static unsafe class SlotTooltipResolver
                 var macro = macroModule->GetMacro(slot.MacroSet, slot.MacroIndex);
                 if (macro != null)
                 {
-                    var macroName = SeStringTextHelper.ReadPlainText(macro->Name);
+                    var macroName = SeStringText.ReadPlainText(macro->Name);
                     if (!string.IsNullOrWhiteSpace(macroName))
                         return macroName;
                 }
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Macro tooltip read failed (set={slot.MacroSet} index={slot.MacroIndex}): {ex.Message}");
+                PluginServices.Log.Debug($"[EQP] Macro tooltip read failed (set={slot.MacroSet} index={slot.MacroIndex}): {ex.Message}");
             }
         }
 
@@ -118,7 +133,7 @@ internal static unsafe class SlotTooltipResolver
 
         var native = ResolveNative(RaptureHotbarModule.HotbarSlotType.Macro, commandId);
         if (!IsFallbackLabel(native, RaptureHotbarModule.HotbarSlotType.Macro, commandId)
-            && !SeStringTextHelper.LooksLikeUnparsedSeString(native))
+            && !SeStringText.LooksLikeUnparsedSeString(native))
             return native;
 
         var setLabel = slot.MacroSet == 0 ? T("macroContent.referencePersonal") : T("macroContent.referenceShared");
@@ -181,7 +196,7 @@ internal static unsafe class SlotTooltipResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Lumina tooltip fallback failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Lumina tooltip fallback failed ({type} #{commandId}): {ex.Message}");
             return string.Empty;
         }
     }
@@ -236,7 +251,7 @@ internal static unsafe class SlotTooltipResolver
     private static string GetSheetName<T>(uint rowId, Func<T, string> getName)
         where T : struct, Lumina.Excel.IExcelRow<T>
     {
-        var row = Svc.Data.GetExcelSheet<T>()?.GetRowOrDefault(rowId);
+        var row = PluginServices.Data.GetExcelSheet<T>()?.GetRowOrDefault(rowId);
         return row == null ? string.Empty : getName(row.Value).Trim();
     }
 

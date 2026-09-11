@@ -6,13 +6,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace EnhancedQuickPanel.Services;
 
-/// <summary>
-/// MacroChain-compatible macro slot model:
-/// GetMacro(set, index) where set 0 = individual, 1 = shared, index = 0..99.
-/// Macro #N uses index N-1 (0-based). Hotbar commandId = set * 100 + index + 1.
-/// QuickPanel: personal = index (0-99), shared = 256 + index (256-355).
-/// </summary>
-/// <summary>Encodes and decodes macro slot command IDs and resolves macro slots.</summary>
+/// <summary>Encodes and decodes macro command IDs (hotbar and native QuickPanel layouts).</summary>
 internal static unsafe class MacroSlotResolver
 {
     private const uint SharedMacroCommandIdBase = 256;
@@ -56,11 +50,6 @@ internal static unsafe class MacroSlotResolver
         var macroIndex = (byte)(slot == 0 ? 99 : slot - 1);
         return (macroSet, macroIndex);
     }
-
-    public static (byte MacroSet, byte MacroIndex) DecodeQuickPanelMacroCommandId(uint commandId) =>
-        TryDecodeQuickPanelMacroCommandId(commandId, out var macroSet, out var macroIndex)
-            ? (macroSet, macroIndex)
-            : ((byte)0, (byte)0);
 
     public static bool TryResolveMacroSlot(uint commandId, out byte macroSet, out byte macroIndex)
     {
@@ -170,8 +159,8 @@ internal static unsafe class MacroSlotResolver
     {
         macroSet = 0;
 
-        if (!GenericHelpers.TryGetAddonByName<AddonMacro>("Macro", out var macroAddon)
-            || !GenericHelpers.IsAddonReady((AtkUnitBase*)macroAddon))
+        if (!AddonAccess.TryGetAddonByName<AddonMacro>("Macro", out var macroAddon)
+            || !AddonAccess.IsAddonReady((AtkUnitBase*)macroAddon))
             return false;
 
         if (macroAddon->SelectedPage > 1)
@@ -199,8 +188,8 @@ internal static unsafe class MacroSlotResolver
             if (personalMacro == null || sharedMacro == null)
                 return false;
 
-            var personalName = SeStringTextHelper.ReadPlainText(personalMacro->Name);
-            var sharedName = SeStringTextHelper.ReadPlainText(sharedMacro->Name);
+            var personalName = SeStringText.ReadPlainText(personalMacro->Name);
+            var sharedName = SeStringText.ReadPlainText(sharedMacro->Name);
 
             var personalMatch = NamesMatch(draggedName, personalName);
             var sharedMatch = NamesMatch(draggedName, sharedName);
@@ -219,7 +208,7 @@ internal static unsafe class MacroSlotResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Macro name match failed (index={macroIndex}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Macro name match failed (index={macroIndex}): {ex.Message}");
         }
 
         return false;
@@ -256,7 +245,7 @@ internal static unsafe class MacroSlotResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Macro content disambiguation failed (index={macroIndex}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Macro content disambiguation failed (index={macroIndex}): {ex.Message}");
         }
 
         return false;
@@ -345,20 +334,6 @@ internal static unsafe class MacroSlotResolver
         }
 
         return false;
-    }
-
-    public static bool TryResolveScratchHotbarCommandId(uint commandId, out uint hotbarCommandId)
-    {
-        hotbarCommandId = 0;
-        if (commandId == 0)
-            return false;
-
-        return ScratchSlotHelper.TryResolveCommand(
-            RaptureHotbarModule.HotbarSlotType.Macro,
-            commandId,
-            out var resolvedType,
-            out hotbarCommandId)
-            && resolvedType == RaptureHotbarModule.HotbarSlotType.Macro;
     }
 }
 

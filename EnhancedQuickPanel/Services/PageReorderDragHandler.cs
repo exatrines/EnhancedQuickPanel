@@ -1,4 +1,3 @@
-﻿using ECommons.ImGuiMethods;
 using EnhancedQuickPanel.Models;
 
 namespace EnhancedQuickPanel.Services;
@@ -75,7 +74,7 @@ internal static class PageReorderDragHandler
         {
             SwapPages(pages, _sourceIndex, _hoverIndex);
             UpdateSelectedPage(ref selectedPage, _sourceIndex, _hoverIndex);
-            EzConfig.Save();
+            Config.Save();
         }
 
         if (!ImGui.IsMouseDown(ImGuiMouseButton.Left))

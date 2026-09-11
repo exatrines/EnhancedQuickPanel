@@ -131,8 +131,8 @@ internal static unsafe class InventoryRetainerDragSourceResolver
 
     private static string[] GetOrderedGridNames()
     {
-        if (GenericHelpers.TryGetAddonByName<AddonInventoryRetainerLarge>("InventoryRetainerLarge", out var large)
-            && GenericHelpers.IsAddonReady((AtkUnitBase*)large))
+        if (AddonAccess.TryGetAddonByName<AddonInventoryRetainerLarge>("InventoryRetainerLarge", out var large)
+            && AddonAccess.IsAddonReady((AtkUnitBase*)large))
         {
             return
             [

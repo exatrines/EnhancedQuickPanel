@@ -108,41 +108,6 @@ public sealed class PanelUiStyleConfig
         ButtonBgHoverAlpha = color.W;
     }
 
-    public void SetFieldBgColor(Vector4 color)
-    {
-        FieldBgRed = color.X;
-        FieldBgGreen = color.Y;
-        FieldBgBlue = color.Z;
-        FieldBgAlpha = color.W;
-    }
-
-    public void SetPlaceholderTextColor(Vector4 color)
-    {
-        PlaceholderTextRed = color.X;
-        PlaceholderTextGreen = color.Y;
-        PlaceholderTextBlue = color.Z;
-        PlaceholderTextAlpha = color.W;
-    }
-
-    public void SetDropdownBgColor(Vector4 color)
-    {
-        DropdownBgRed = color.X;
-        DropdownBgGreen = color.Y;
-        DropdownBgBlue = color.Z;
-        DropdownBgAlpha = color.W;
-    }
-
-    public void EnsureDefaults()
-    {
-        if (PlaceholderTextRed == 0f && PlaceholderTextGreen == 0f
-            && PlaceholderTextBlue == 0f && PlaceholderTextAlpha == 0f)
-            SetPlaceholderTextColor(new Vector4(0.6f, 0.6f, 0.6f, 1f));
-
-        if (DropdownBgRed == 0f && DropdownBgGreen == 0f
-            && DropdownBgBlue == 0f && DropdownBgAlpha == 0f)
-            SetDropdownBgColor(FieldBgColor);
-    }
-
     public static PanelUiStyleConfig CreateDefault() => new();
 
     public static PanelUiStyleConfig FromPageBarStyle(PageBarButtonStyleConfig pageBar)

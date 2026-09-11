@@ -102,8 +102,8 @@ internal static class SlotIconPicker
 
     private static Vector2 ComputePickerSize()
     {
-        C.EnsureDefaults();
-        var pad = C.WindowPadding;
+        Config.EnsureDefaults();
+        var pad = Config.WindowPadding;
         var style = ImGui.GetStyle();
         var gridW = ComputeGridWidth();
         var contentH = ComputeContentHeight();
@@ -120,8 +120,8 @@ internal static class SlotIconPicker
 
     private static float ComputeBottomSpacing()
     {
-        C.EnsureDefaults();
-        return C.WindowPadding;
+        Config.EnsureDefaults();
+        return Config.WindowPadding;
     }
 
     private static float ComputeGridWidth() =>
@@ -130,7 +130,7 @@ internal static class SlotIconPicker
 
     private static float ComputeGridHeight() =>
         Layout.GridRows * Layout.IconCellSize
-        + Math.Max(0, Layout.GridRows - 1) * C.SlotPadding;
+        + Math.Max(0, Layout.GridRows - 1) * Config.SlotPadding;
 
     private static void DrawWindowContent(PanelSlot slot)
     {
@@ -617,50 +617,42 @@ internal static class SlotIconPicker
         if (interactive)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(ImGuiCol.FrameBg));
-            if (ImGui.Button("##eqpOverlayIconPick", size))
+            if (ImGui.Button("##eqpSlotIconPick", size))
                 Open(slot);
             ImGui.PopStyleColor();
         }
         else
         {
             using (ImRaii.Disabled())
-                ImGui.Button("##eqpOverlayIconPick", size);
+                ImGui.Button("##eqpSlotIconPick", size);
         }
 
         var min = ImGui.GetItemRectMin();
         var max = ImGui.GetItemRectMax();
         var drawList = ImGui.GetWindowDrawList();
         drawList.AddRect(min, max, ImGui.GetColorU32(ImGuiCol.Border), 4f);
-
-        if (previewIcon.IsValid)
-        {
-            DrawIconInRect(previewIcon.IconId, min, max);
-            return;
-        }
-
-        var text = "?";
-        var textSize = ImGui.CalcTextSize(text);
-        var pos = min + (max - min - textSize) * 0.5f;
-        drawList.AddText(pos, ImGui.GetColorU32(ImGuiCol.TextDisabled), text);
+        DrawSlotIconPreview(drawList, min, max, slot, previewIcon);
     }
 
-    public static void DrawIconDisplay(PanelSlot slot, Vector2 size)
+    private static void DrawSlotIconPreview(
+        ImDrawListPtr drawList,
+        Vector2 min,
+        Vector2 max,
+        PanelSlot slot,
+        ResolvedSlotIcon previewIcon)
     {
-        var previewIcon = slot.IconId != 0
-            ? new ResolvedSlotIcon(slot.IconId, false)
-            : SlotIconResolver.ResolveIcon(slot);
-
-        ImGui.Dummy(size);
-        var min = ImGui.GetItemRectMin();
-        var max = ImGui.GetItemRectMax();
-        var drawList = ImGui.GetWindowDrawList();
-        drawList.AddRect(min, max, ImGui.GetColorU32(ImGuiCol.Border), 4f);
+        if (PluginShortcuts.TryGetIcon(slot, out var pluginTexture)
+            && SafeTextureDraw.TryAddImage(drawList, pluginTexture, min, max, uint.MaxValue))
+            return;
 
         if (previewIcon.IsValid)
         {
             DrawIconInRect(previewIcon.IconId, min, max);
             return;
         }
+
+        if (DalamudShortcuts.TryDrawIcon(drawList, min, max, slot, ImGui.GetColorU32(ImGuiCol.Text)))
+            return;
 
         var text = "?";
         var textSize = ImGui.CalcTextSize(text);
@@ -686,27 +678,8 @@ internal static class SlotIconPicker
     {
         slot.IconId = iconId;
         SelectIcon(iconId);
-        EzConfig.Save();
+        Config.Save();
         _isOpen = false;
-    }
-
-    public static string ResolveIconDisplayName(uint iconId)
-    {
-        if (iconId == 0)
-            return T("common.auto");
-
-        if (CustomIconIds.IsCustom(iconId))
-        {
-            var customName = CustomIconRegistry.GetName(iconId);
-            return string.IsNullOrWhiteSpace(customName)
-                ? CustomIconRegistry.FormatDisplayId(iconId)
-                : customName;
-        }
-
-        var names = LookupIconNames(iconId);
-        return names.Count == 0
-            ? T("common.unknown")
-            : string.Join(" / ", names);
     }
 
     private static void RefreshResults()
@@ -716,12 +689,6 @@ internal static class SlotIconPicker
             : MacroIconLookup.SearchAll(_search).ToList();
     }
 
-    private static List<string> LookupIconNames(uint iconId) =>
-        MacroIconLookup.GetNamesForIconId(iconId).ToList();
-
-    /// <summary>
-    /// Applies MirageUI theme colors to the picker without leaking styles to other windows.
-    /// </summary>
     /// <summary>Pushes icon-picker window styling and restores it on dispose.</summary>
     private readonly struct PickerAppearanceScope : IDisposable
     {
@@ -749,15 +716,15 @@ internal static class SlotIconPicker
             _buttonActive = ImRaii.PushColor(ImGuiCol.ButtonActive, settings.HeaderActive);
             _frameBgActive = ImRaii.PushColor(ImGuiCol.FrameBgActive, settings.FrameBgHovered);
 
-            C.EnsureDefaults();
+            Config.EnsureDefaults();
             _windowBorderSize = ImRaii.PushStyle(ImGuiStyleVar.WindowBorderSize, 0f);
             _windowRounding = ImRaii.PushStyle(ImGuiStyleVar.WindowRounding, WindowBorderRounding);
             _windowPadding = ImRaii.PushStyle(
                 ImGuiStyleVar.WindowPadding,
-                new Vector2(C.WindowPadding, C.WindowPadding));
+                new Vector2(Config.WindowPadding, Config.WindowPadding));
             _itemSpacing = ImRaii.PushStyle(
                 ImGuiStyleVar.ItemSpacing,
-                new Vector2(C.SlotPadding, C.SlotPadding));
+                new Vector2(Config.SlotPadding, Config.SlotPadding));
         }
 
         public void Dispose()

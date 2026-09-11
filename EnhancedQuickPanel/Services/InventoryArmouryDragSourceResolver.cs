@@ -59,8 +59,8 @@ internal static unsafe class InventoryArmouryDragSourceResolver
         if (dragInterface == null)
             return false;
 
-        if (!GenericHelpers.TryGetAddonByName<AddonArmouryBoard>(AddonName, out var armoury)
-            || !GenericHelpers.IsAddonReady((AtkUnitBase*)armoury))
+        if (!AddonAccess.TryGetAddonByName<AddonArmouryBoard>(AddonName, out var armoury)
+            || !AddonAccess.IsAddonReady((AtkUnitBase*)armoury))
             return false;
 
         tabIndex = armoury->TabIndex;

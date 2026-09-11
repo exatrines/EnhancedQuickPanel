@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using EnhancedQuickPanel.Models;
-using ECommons.WindowsFormsReflector;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -19,13 +18,13 @@ internal static class PanelStyleImportExport
     {
         try
         {
-            C.EnsureDefaults();
-            Winforms.Clipboard.SetText(Export(C));
-            Notify.Success(T("panelStyle.exportSuccess"));
+            Config.EnsureDefaults();
+            ImGui.SetClipboardText(Export(Config));
+            Notifications.Success(T("panelStyle.exportSuccess"));
         }
         catch (Exception ex)
         {
-            Notify.Error(T("panelStyle.exportFailed", ex.Message));
+            Notifications.Error(T("panelStyle.exportFailed", ex.Message));
         }
     }
 
@@ -33,26 +32,26 @@ internal static class PanelStyleImportExport
     {
         try
         {
-            var json = Winforms.Clipboard.GetText();
+            var json = ImGui.GetClipboardText();
             if (string.IsNullOrWhiteSpace(json))
             {
-                Notify.Warning(T("panelStyle.error.noClipboard"));
+                Notifications.Warning(T("panelStyle.error.noClipboard"));
                 return;
             }
 
-            if (!TryImport(json, C, out var error))
+            if (!TryImport(json, Config, out var error))
             {
-                Notify.Warning(error);
+                Notifications.Warning(error);
                 return;
             }
 
-            C.EnsureDefaults();
-            EzConfig.Save();
-            Notify.Success(T("panelStyle.importSuccess"));
+            Config.EnsureDefaults();
+            Config.Save();
+            Notifications.Success(T("panelStyle.importSuccess"));
         }
         catch (Exception ex)
         {
-            Notify.Error(T("panelStyle.importFailed", ex.Message));
+            Notifications.Error(T("panelStyle.importFailed", ex.Message));
         }
     }
 

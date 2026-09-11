@@ -6,11 +6,12 @@ FFXIV用のカスタマイズ可能なクイックパネルオーバーレイ（
 
 ゲーム標準のネイティブクイックパネルの代わりにオーバーレイを表示し、アクション・アイテム・マクロ・テキストコマンドを自由に配置したパネルを作成することができます。
 
-<img src=assets/ja/overlay.png style='display: block; margin: auto; max-width: 600px'>
+<img src=docs/screenshots/ja/overlay.png style='display: block; margin: auto; max-width: 600px'>
 
 ## 機能
 
 - **柔軟なスロット** – 各スロットにアクション・アイテム・マクロ・任意のテキスト／チャットコマンドを設定できます。
+- **パネルサイズ** – ネイティブと同じ 5×5（1×1）から、最大 2×2 ブロック（1×2 / 2×1 / 2×2）まで広げられます。サイズは全ページ共通です。
 - **複数ページ** – スロットを好きなだけページに分けて整理し、ページ名クリックのポップアップやマウスホイールで切り替えられます。
 - **ドラッグ＆ドロップ編集** – ゲームのホットバーやインベントリからアクション・アイテムを直接スロットへドラッグでき、スロット同士のドラッグで入れ替えも可能です。
 - **アイコン選択** – 全カテゴリーのゲーム内アイコンから選べるほか、URL から画像を取り込んでカスタムアイコンとして使用できます。
@@ -46,7 +47,7 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 - スロット同士をドラッグして入れ替える。
 - サイドパネルからページの追加・名前変更・削除・並べ替えを行う。
 
-<img src=assets/ja/edit-mode.png style='display: block; margin: auto; max-width: 600px'>
+<img src=docs/screenshots/ja/edit-mode.png style='display: block; margin: auto; max-width: 600px'>
 
 ## カスタマイズ
 
@@ -55,7 +56,8 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 ### 設定タブ
 
 - `/quickpanel` 実行時にネイティブクイックパネルの代わりにオーバーレイを表示するかを選択。
-- ページ選択ポップアップ、編集ボタン、空スロットの枠の表示を切り替え。
+- パネルサイズ（1×1 / 1×2 / 2×1 / 2×2）を選択。既存スロットの位置は保ちます。縮小する範囲にスロットがあると警告して変更できません。
+- ページ選択ポップアップ、折り畳みボタン、編集ボタン、空スロットの枠の表示を切り替え。
 - コンテキストメニューに表示する項目を選択。
 
 ### スタイルタブ
@@ -65,8 +67,8 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 <table style='display: block; margin: auto; max-width: 800px'>
     <tr>
-        <td><img src=assets/ja/settings.png></td>
-        <td><img src=assets/ja/style.png></td>
+        <td><img src=docs/screenshots/ja/settings.png></td>
+        <td><img src=docs/screenshots/ja/style.png></td>
     </tr>
 </table>
 
@@ -77,12 +79,13 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 オーバーレイの右クリックで、表示項目を選べるメニューが開きます。
 
 - **設定** – 設定ウィンドウを開きます。
-- **クリップボードからインポート** / **クリップボードにエクスポート** – 現在のページのスロットを共有します。
-- **ネイティブクイックパネルからインポート** – ネイティブクイックパネルのページを新しいページとして取り込みます。
+- **クリップボードからインポート** / **クリップボードにエクスポート** – 現在のページのスロットを、幅・高さ込みで共有します。今のレイアウトより幅か高さの大きいページは拒否されます。小さいページは左上に貼り、それ以外のマスは残します。
+- **ネイティブクイックパネルからインポート** – ネイティブの 5×5 を新しいページの左上に取り込みます。レイアウトは変わりません。
 - **編集** – 編集モードを切り替えます。
+- **折り畳む／展開** – オーバーレイを展開ボタンだけに畳むか、パネルを戻します。専用ボタンでも同じ状態を切り替えます。
 - **閉じる** – オーバーレイを非表示にします。
 
-<img src=assets/ja/contextmenu.png style='display: block; margin: auto; max-width: 600px'>
+<img src=docs/screenshots/ja/contextmenu.png style='display: block; margin: auto; max-width: 600px'>
 
 ### アイコン選択画面
 
@@ -90,14 +93,26 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 <table style='display: block; margin: auto; max-width: 800px'>
     <tr>
-        <td><img src=assets/ja/icon-picker.png></td>
-        <td><img src=assets/ja/icon-picker-custom.png></td>
+        <td><img src=docs/screenshots/ja/icon-picker.png></td>
+        <td><img src=docs/screenshots/ja/icon-picker-custom.png></td>
     </tr>
 </table>
 
 ### ネイティブクイックパネルインポート画面
 
-ネイティブクイックパネルインポート画面ではFFXIV標準のクイックパネルからパネルを作成できます。
+ネイティブクイックパネルインポート画面では、FFXIV 標準の 5×5 クイックパネルから新しいページを作成できます。内容は左上に入り、今のパネルサイズは変わりません。
 
-<img src=assets/ja/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
+<img src=docs/screenshots/ja/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
+
+### プラグインショートカットと折り畳み
+
+編集モードの空スロットは「テキストコマンド」「Dalamud」「プラグイン」から選べます。Dalamud は「プラグインインストーラー」「Dalamud設定」「Dalamud Data」「Dalamud Console」を直接開きます（`/xl*` をチャットに流しません）。未指定時は Font Awesome アイコンです。
+
+編集モードでスロットを選び、種類を「プラグイン」にすると、インストール済み一覧から登録できます。初期設定は左クリックでメイン画面、右クリックで設定画面、中央クリックでプラグイン本体の有効／無効です。各ボタンには「何もしない」「メイン画面」「設定画面」「コマンド」「有効／無効」を個別に割り当てられます。画面を公開していないプラグインには、そのプラグインのコマンドを設定してください。Enhanced Quick Panel 自身の有効／無効は切り替えられません。
+
+標準ではプラグイン自身のアイコンを表示します。アイコンボタンからゲームアイコンや独自アイコンに変更でき、ピッカーで解除すると標準アイコンに戻ります。Dalamud 側に画像が無いときは、マニフェストのアイコン URL から独自アイコンフォルダの `icon/Plugins` へダウンロードします（プラグインごとに 1 ファイル、取得のたびに上書き）。まだ無いときは `?` です。無効化したプラグインはスロットに残し、暗い表示になります。ホバー時は名前のあとに「（無効）」が付きます。切り替え処理中は同期アイコンを重ねます。
+
+オーバーレイのヘッダーには折り畳みボタン、ページ、編集ボタンを並べられます。専用ボタンと右クリックメニューの両方で折り畳み／展開できます。折り畳み状態は保存され、畳んだあとは展開ボタンだけが残ります。プラグインスロット上で既存のパネル管理メニューを開く場合は Shift＋右クリックを使ってください。編集モードでは通常の右クリックで開きます。
+
+これらの機能は [Dalamud Quick Launcher](https://github.com/elpapityo/DalamudQuickLauncher) の公開仕様を参考に実装しています（開発者の許可取得済み）。
 

@@ -28,23 +28,6 @@ internal static unsafe class SlotIconResolver
 
     public static void ClearCache() => HotbarIconCache.Clear();
 
-    public static ResolvedSlotIcon ResolveNativeIcon(int slotIndex, RaptureHotbarModule.HotbarSlotType type, uint commandId)
-    {
-        if (NativeQuickPanelUiReader.TryGetSlotIcon(slotIndex, out var uiIcon) && uiIcon.IsValid)
-            return ApplyHighQuality(uiIcon, type, commandId);
-
-        return ResolveHotbarIcon(type, commandId);
-    }
-
-    public static ResolvedSlotIcon ResolveNativeIcon(RaptureHotbarModule.HotbarSlotType type, uint commandId) =>
-        ResolveHotbarIcon(type, commandId);
-
-    public static uint ResolveNativeIconId(RaptureHotbarModule.HotbarSlotType type, uint commandId) =>
-        ResolveHotbarIcon(type, commandId).IconId;
-
-    public static string ResolveNativeTooltip(RaptureHotbarModule.HotbarSlotType type, uint commandId) =>
-        SlotTooltipResolver.ResolveNative(type, commandId);
-
     public static string ResolveTooltip(PanelSlot slot) =>
         SlotTooltipResolver.Resolve(slot);
 
@@ -65,19 +48,8 @@ internal static unsafe class SlotIconResolver
         };
     }
 
-    public static uint ResolveIconId(PanelSlot slot) => ResolveIcon(slot).IconId;
-
-    public static uint EncodeMacroCommandId(PanelSlot slot) =>
-        MacroSlotResolver.EncodeHotbarCommandId(slot.MacroSet, slot.MacroIndex);
-
-    public static uint EncodeMacroCommandId(byte macroSet, byte macroIndex) =>
+    private static uint EncodeMacroCommandId(byte macroSet, byte macroIndex) =>
         MacroSlotResolver.EncodeHotbarCommandId(macroSet, macroIndex);
-
-    public static (byte MacroSet, byte MacroIndex) DecodeMacroCommandId(uint commandId) =>
-        MacroSlotResolver.DecodeHotbarCommandId(commandId);
-
-    public static (byte MacroSet, byte MacroIndex) DecodeQuickPanelMacroCommandId(uint commandId) =>
-        MacroSlotResolver.DecodeQuickPanelMacroCommandId(commandId);
 
     private static ResolvedSlotIcon ResolveHotbarIcon(RaptureHotbarModule.HotbarSlotType type, uint commandId)
     {
@@ -151,7 +123,7 @@ internal static unsafe class SlotIconResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Hotbar icon read failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Hotbar icon read failed ({type} #{commandId}): {ex.Message}");
         }
 
         return LuminaIconFallback(type, commandId, isHq);
@@ -163,23 +135,12 @@ internal static unsafe class SlotIconResolver
         if (baseItemId == 0)
             return ResolvedSlotIcon.Empty;
 
-        var row = Svc.Data.GetExcelSheet<Item>()?.GetRowOrDefault(baseItemId);
+        var row = PluginServices.Data.GetExcelSheet<Item>()?.GetRowOrDefault(baseItemId);
         if (row == null)
             return ResolvedSlotIcon.Empty;
 
         var iconId = (uint)row.Value.Icon;
         return IsLoadableIcon(iconId) ? new ResolvedSlotIcon(iconId, isHq) : ResolvedSlotIcon.Empty;
-    }
-
-    private static ResolvedSlotIcon ApplyHighQuality(
-        ResolvedSlotIcon icon,
-        RaptureHotbarModule.HotbarSlotType type,
-        uint commandId)
-    {
-        if (!InventorySlotHelper.IsHighQuality(type, commandId))
-            return icon;
-
-        return icon.IsHighQuality ? icon : icon with { IsHighQuality = true };
     }
 
     private static bool IsItemLikeType(RaptureHotbarModule.HotbarSlotType type) =>
@@ -206,7 +167,7 @@ internal static unsafe class SlotIconResolver
         if (itemId == 0)
             return ResolvedSlotIcon.Empty;
 
-        var row = Svc.Data.GetExcelSheet<Item>()?.GetRowOrDefault(itemId);
+        var row = PluginServices.Data.GetExcelSheet<Item>()?.GetRowOrDefault(itemId);
         if (row != null)
         {
             var isHq = inventoryItem->IsHighQuality();
@@ -214,7 +175,7 @@ internal static unsafe class SlotIconResolver
             return IsLoadableIcon(iconId) ? new ResolvedSlotIcon(iconId, isHq) : ResolvedSlotIcon.Empty;
         }
 
-        var eventRow = Svc.Data.GetExcelSheet<EventItem>()?.GetRowOrDefault(itemId);
+        var eventRow = PluginServices.Data.GetExcelSheet<EventItem>()?.GetRowOrDefault(itemId);
         if (eventRow == null)
             return ResolvedSlotIcon.Empty;
 
@@ -291,7 +252,7 @@ internal static unsafe class SlotIconResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Macro icon read failed (set={macroSet} index={macroIndex}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Macro icon read failed (set={macroSet} index={macroIndex}): {ex.Message}");
             return ResolvedSlotIcon.Empty;
         }
     }
@@ -388,7 +349,7 @@ internal static unsafe class SlotIconResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Lumina icon fallback failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Lumina icon fallback failed ({type} #{commandId}): {ex.Message}");
             return ResolvedSlotIcon.Empty;
         }
     }
@@ -402,7 +363,7 @@ internal static unsafe class SlotIconResolver
 
     private static uint GetRowIcon<T>(uint commandId, Func<T, uint> getIcon) where T : struct, Lumina.Excel.IExcelRow<T>
     {
-        var row = Svc.Data.GetExcelSheet<T>()?.GetRowOrDefault(commandId);
+        var row = PluginServices.Data.GetExcelSheet<T>()?.GetRowOrDefault(commandId);
         if (row == null)
             return 0;
 

@@ -3,14 +3,9 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
 
-/// <summary>
-/// Guards drag-drop inventory resolution: verify results and restore scratch-slot state.
-/// </summary>
-/// <summary>Guards inventory drag operations against unsafe game states.</summary>
+/// <summary>Verifies inventory drag results and restores scratch-slot state.</summary>
 internal static unsafe class InventoryDragSafety
 {
-    internal const int MinConfidentMatchScore = 20;
-
     public static bool TryVerifyDragResolution(
         ResolvedSlotIcon appearance,
         InventoryType container,
@@ -39,7 +34,7 @@ internal static unsafe class InventoryDragSafety
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Drag resolution verify failed ({container}#{slotIndex + 1}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Drag resolution verify failed ({container}#{slotIndex + 1}): {ex.Message}");
             return false;
         }
     }
@@ -109,7 +104,7 @@ internal static unsafe class InventoryDragSafety
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Scratch-restore action failed: {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Scratch-restore action failed: {ex.Message}");
             result = false;
         }
 
@@ -121,14 +116,12 @@ internal static unsafe class InventoryDragSafety
             }
             catch (Exception ex)
             {
-                PluginLog.Debug($"[EQP] Scratch slot restore failed: {ex.Message}");
+                PluginServices.Log.Debug($"[EQP] Scratch slot restore failed: {ex.Message}");
             }
         }
 
         return result;
     }
-
-    public static bool IsConfidentMatch(int score) => score >= MinConfidentMatchScore;
 
     public static bool HasInventoryItemAt(InventoryType container, int slotIndex) =>
         InventorySlotHelper.TryInventorySlotHasItem(container, slotIndex, expectedItemId: null);

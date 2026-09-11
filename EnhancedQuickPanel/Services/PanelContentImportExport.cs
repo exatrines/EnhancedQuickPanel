@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using EnhancedQuickPanel.Models;
-using ECommons.WindowsFormsReflector;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -15,21 +14,17 @@ internal static class PanelContentImportExport
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public static PanelPage ClonePage(PanelPage page) =>
-        JsonSerializer.Deserialize<PanelPage>(JsonSerializer.Serialize(page, JsonOptions), JsonOptions)
-        ?? Configuration.CreateEmptyPage(page.Name);
-
     public static void ExportToClipboard(PanelPage page)
     {
         try
         {
-            C.EnsureDefaults();
-            Winforms.Clipboard.SetText(Export(page));
-            Notify.Success(T("panelContent.exportSuccess"));
+            Config.EnsureDefaults();
+            ImGui.SetClipboardText(Export(page));
+            Notifications.Success(T("panelContent.exportSuccess"));
         }
         catch (Exception ex)
         {
-            Notify.Error(T("panelContent.exportFailed", ex.Message));
+            Notifications.Error(T("panelContent.exportFailed", ex.Message));
         }
     }
 
@@ -38,58 +33,24 @@ internal static class PanelContentImportExport
         error = string.Empty;
         try
         {
-            var json = Winforms.Clipboard.GetText();
+            var json = ImGui.GetClipboardText();
             if (string.IsNullOrWhiteSpace(json))
             {
                 error = T("panelContent.error.noClipboard");
                 return false;
             }
 
-            if (!TryImport(json, out var imported, out error))
+            if (!TryReadSnapshot(json, out var snapshot, out error))
                 return false;
 
-            C.EnsureDefaults();
-            C.Pages.Add(imported);
-            EzConfig.Save();
-            Notify.Success(T("panelContent.importNewSuccess"));
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = T("panelContent.importFailed", ex.Message);
-            return false;
-        }
-    }
-
-    public static bool TryImportFromClipboardToPage(int pageIndex, out string error)
-    {
-        error = string.Empty;
-        try
-        {
-            var json = Winforms.Clipboard.GetText();
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                error = T("panelContent.error.noClipboard");
-                return false;
-            }
-
-            if (!TryImport(json, out var imported, out error))
+            Config.EnsureDefaults();
+            var page = Configuration.CreateEmptyPage(Config.SlotsPerPage, snapshot.PageName);
+            if (!TryPasteSnapshot(snapshot, page, out error))
                 return false;
 
-            C.EnsureDefaults();
-            if (pageIndex < 0 || pageIndex >= C.Pages.Count)
-            {
-                error = T("panelContent.error.noPage");
-                return false;
-            }
-
-            var target = C.Pages[pageIndex];
-            var pageName = target.Name;
-            var cloned = ClonePage(imported);
-            cloned.Name = pageName;
-            target.Slots = cloned.Slots;
-            EzConfig.Save();
-            Notify.Success(T("panelContent.importPageSuccess", pageName));
+            Config.Pages.Add(page);
+            Config.Save();
+            Notifications.Success(T("panelContent.importNewSuccess"));
             return true;
         }
         catch (Exception ex)
@@ -102,9 +63,9 @@ internal static class PanelContentImportExport
     public static string Export(PanelPage page) =>
         JsonSerializer.Serialize(PanelContentSnapshot.From(page), JsonOptions);
 
-    public static bool TryImport(string json, out PanelPage page, out string error)
+    private static bool TryReadSnapshot(string json, out PanelContentSnapshot snapshot, out string error)
     {
-        page = Configuration.CreateEmptyPage();
+        snapshot = new PanelContentSnapshot();
         error = string.Empty;
 
         if (string.IsNullOrWhiteSpace(json))
@@ -115,23 +76,29 @@ internal static class PanelContentImportExport
 
         try
         {
-            var snapshot = JsonSerializer.Deserialize<PanelContentSnapshot>(json, JsonOptions);
-            if (snapshot == null)
+            var parsed = JsonSerializer.Deserialize<PanelContentSnapshot>(json, JsonOptions);
+            if (parsed == null)
             {
                 error = T("panelContent.error.loadFailed");
                 return false;
             }
 
-            if (snapshot.Version == 0)
-                snapshot.Version = PanelContentSnapshot.CurrentVersion;
+            if (parsed.Version == 0)
+                parsed.Version = PanelContentSnapshot.CurrentVersion;
 
-            if (snapshot.Version != PanelContentSnapshot.CurrentVersion)
+            if (parsed.Version != PanelContentSnapshot.CurrentVersion)
             {
-                error = T("panelContent.error.unsupportedVersion", snapshot.Version);
+                error = T("panelContent.error.unsupportedVersion", parsed.Version);
                 return false;
             }
 
-            page = snapshot.ToPage();
+            if (!parsed.TryGetDimensions(out _, out _))
+            {
+                error = T("panelContent.error.loadFailed");
+                return false;
+            }
+
+            snapshot = parsed;
             return true;
         }
         catch (JsonException ex)
@@ -139,6 +106,40 @@ internal static class PanelContentImportExport
             error = T("panelContent.error.invalidJson", ex.Message);
             return false;
         }
+    }
+
+    private static bool TryPasteSnapshot(PanelContentSnapshot snapshot, PanelPage target, out string error)
+    {
+        error = string.Empty;
+        Config.EnsureDefaults();
+        target.Slots ??= [];
+        while (target.Slots.Count < Config.SlotsPerPage)
+            target.Slots.Add(new PanelSlot());
+
+        if (!snapshot.TryGetDimensions(out var sourceColumns, out var sourceRows))
+        {
+            error = T("panelContent.error.loadFailed");
+            return false;
+        }
+
+        if (!PanelLayout.CanFit(sourceColumns, sourceRows, Config.GridColumns, Config.GridRows))
+        {
+            error = T("panelContent.error.tooLarge", sourceColumns, sourceRows, Config.GridColumns, Config.GridRows);
+            return false;
+        }
+
+        var cloned = snapshot.Slots
+            .Select(PanelContentSnapshot.CloneSlot)
+            .ToList();
+
+        PanelLayout.PasteTopLeft(
+            target.Slots,
+            Config.GridColumns,
+            Config.GridRows,
+            cloned,
+            sourceColumns,
+            sourceRows);
+        return true;
     }
 
     /// <summary>Serializable snapshot of a page's slots.</summary>
@@ -150,32 +151,39 @@ internal static class PanelContentImportExport
 
         public string PageName { get; set; } = string.Empty;
 
+        public int Columns { get; set; }
+
+        public int Rows { get; set; }
+
         public List<PanelSlot> Slots { get; set; } = [];
 
-        public static PanelContentSnapshot From(PanelPage page) =>
-            new()
+        public static PanelContentSnapshot From(PanelPage page)
+        {
+            Config.EnsureDefaults();
+            return new PanelContentSnapshot
             {
                 PageName = page.Name,
+                Columns = Config.GridColumns,
+                Rows = Config.GridRows,
                 Slots = page.Slots
-                    .Take(Configuration.SlotsPerPage)
-                    .Select(slot => CloneSlot(slot))
+                    .Take(Config.SlotsPerPage)
+                    .Select(CloneSlot)
                     .ToList(),
             };
+        }
 
-        public PanelPage ToPage()
+        public bool TryGetDimensions(out int columns, out int rows)
         {
-            var page = Configuration.CreateEmptyPage(PageName);
-            page.Slots.Clear();
-
-            for (var i = 0; i < Configuration.SlotsPerPage; i++)
+            if (Columns > 0 && Rows > 0)
             {
-                page.Slots.Add(
-                    i < Slots.Count
-                        ? CloneSlot(Slots[i])
-                        : new PanelSlot());
+                columns = Columns;
+                rows = Rows;
+                return true;
             }
 
-            return page;
+            columns = Configuration.GridSize;
+            rows = Configuration.GridSize;
+            return true;
         }
 
         internal static PanelSlot CloneSlot(PanelSlot slot) =>

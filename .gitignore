@@ -1,6 +1,14 @@
-bin/
-obj/
-.vs/
+## Build
+**/bin/
+**/obj/
 *.user
 *.suo
+.vs/
+artifacts/
 .cursor/
+.agents/
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store

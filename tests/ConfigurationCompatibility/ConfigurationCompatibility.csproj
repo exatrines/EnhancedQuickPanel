@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../EnhancedQuickPanel/Configuration.cs" Link="Configuration.cs" />
+    <Compile Include="../../EnhancedQuickPanel/ConfigurationLoadException.cs" Link="ConfigurationLoadException.cs" />
+    <Compile Include="../../EnhancedQuickPanel/ConfigurationMigration.cs" Link="ConfigurationMigration.cs" />
+    <Compile Include="../../EnhancedQuickPanel/ConfigurationStore.cs" Link="ConfigurationStore.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/PanelSlot.cs" Link="PanelSlot.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/PanelLayout.cs" Link="PanelLayout.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/PanelDisplayMode.cs" Link="PanelDisplayMode.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/ContextMenuItemsConfig.cs" Link="ContextMenuItemsConfig.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/ContextMenuStyleConfig.cs" Link="ContextMenuStyleConfig.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/OverlayLabelStyleConfig.cs" Link="OverlayLabelStyleConfig.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/PageBarButtonStyleConfig.cs" Link="PageBarButtonStyleConfig.cs" />
+    <Compile Include="../../EnhancedQuickPanel/Models/PanelUiStyleConfig.cs" Link="PanelUiStyleConfig.cs" />
+  </ItemGroup>
+</Project>

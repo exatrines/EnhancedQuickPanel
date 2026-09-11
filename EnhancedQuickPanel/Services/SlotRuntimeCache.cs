@@ -3,10 +3,8 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
 
-/// <summary>Cache key identifying a slot by command type and command ID.</summary>
 internal readonly record struct SlotRuntimeKey(byte CommandType, uint CommandId);
 
-/// <summary>Cached per-frame runtime state for a slot.</summary>
 internal readonly record struct SlotRuntimeState(
     bool IsUsable,
     SlotCooldownInfo Cooldown,
@@ -17,10 +15,7 @@ internal readonly record struct SlotRuntimeState(
     public static SlotRuntimeState Default => new(true, SlotCooldownInfo.None, 0, false, 0);
 }
 
-/// <summary>
-/// Per-frame cache that reads scratch-slot runtime state once per action key.
-/// </summary>
-/// <summary>Caches per-frame runtime state (availability, cooldown, charges) for slots.</summary>
+// Per-frame cache of availability, cooldown, and charges keyed by command type/id.
 internal static unsafe class SlotRuntimeCache
 {
     private static int _cachedFrame = -1;
@@ -115,7 +110,7 @@ internal static unsafe class SlotRuntimeCache
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Slot runtime read failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Slot runtime read failed ({type} #{commandId}): {ex.Message}");
             return SlotRuntimeState.Default;
         }
     }

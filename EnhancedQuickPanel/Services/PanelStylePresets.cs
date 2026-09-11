@@ -1,7 +1,5 @@
 using System.Reflection;
 using System.Text.Json;
-using ECommons.DalamudServices;
-using ECommons.Logging;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -53,15 +51,15 @@ internal static class PanelStylePresets
 
     public static void ApplyFromUi(int index)
     {
-        if (!TryApply(C, index, out var error))
+        if (!TryApply(Config, index, out var error))
         {
-            Notify.Warning(error);
+            Notifications.Warning(error);
             return;
         }
 
-        C.EnsureDefaults();
-        EzConfig.Save();
-        Notify.Success(T("panelStyle.presetApplied", GetLabel(Presets[index])));
+        Config.EnsureDefaults();
+        Config.Save();
+        Notifications.Success(T("panelStyle.presetApplied", GetLabel(Presets[index])));
     }
 
     public static bool TryApply(Configuration config, int index, out string error)
@@ -80,9 +78,9 @@ internal static class PanelStylePresets
     {
         try
         {
-            var svcDir = Svc.PluginInterface.AssemblyLocation.DirectoryName;
-            if (!string.IsNullOrEmpty(svcDir))
-                return svcDir;
+            var pluginDir = PluginServices.PluginInterface.AssemblyLocation.DirectoryName;
+            if (!string.IsNullOrEmpty(pluginDir))
+                return pluginDir;
         }
         catch
         {
@@ -93,12 +91,12 @@ internal static class PanelStylePresets
 
     private static StylePreset[] LoadPresets()
     {
-        var presetDir = Path.Combine(ResolvePluginDirectory(), "StylePresets");
+        var presetDir = Path.Combine(ResolvePluginDirectory(), "Data", "StylePresets");
         var manifestPath = Path.Combine(presetDir, "presets.json");
 
         if (!File.Exists(manifestPath))
         {
-            PluginLog.Warning($"[EQP] Style preset manifest not found: {manifestPath}");
+            PluginServices.Log.Warning($"[EQP] Style preset manifest not found: {manifestPath}");
             return [];
         }
 
@@ -117,7 +115,7 @@ internal static class PanelStylePresets
                 var path = Path.Combine(presetDir, entry.File);
                 if (!File.Exists(path))
                 {
-                    PluginLog.Warning($"[EQP] Style preset file not found: {path}");
+                    PluginServices.Log.Warning($"[EQP] Style preset file not found: {path}");
                     continue;
                 }
 
@@ -131,12 +129,12 @@ internal static class PanelStylePresets
                 presets.Add(new StylePreset(id, displayName, File.ReadAllText(path)));
             }
 
-            PluginLog.Information($"[EQP] Loaded {presets.Count} style presets.");
+            PluginServices.Log.Information($"[EQP] Loaded {presets.Count} style presets.");
             return presets.ToArray();
         }
         catch (Exception ex)
         {
-            PluginLog.Warning($"[EQP] Failed to load style presets: {ex.Message}");
+            PluginServices.Log.Warning($"[EQP] Failed to load style presets: {ex.Message}");
             return [];
         }
     }

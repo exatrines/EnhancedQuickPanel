@@ -6,22 +6,6 @@ namespace EnhancedQuickPanel.Services;
 /// <summary>Copies slots from the game's native quick panel into plugin pages.</summary>
 internal static class NativeQuickPanelImporter
 {
-    public static bool TryImportAllPages(IList<PanelPage> pages)
-    {
-        if (!NativeQuickPanelReader.IsAvailable)
-            return false;
-
-        for (var pageIndex = 0; pageIndex < Configuration.NativePageCount; pageIndex++)
-        {
-            while (pages.Count <= pageIndex)
-                pages.Add(Configuration.CreateEmptyPage(T("page.defaultName", pages.Count + 1)));
-
-            ImportNativePage(pages[pageIndex], pageIndex);
-        }
-
-        return true;
-    }
-
     public static bool TryImportNativePageAsNewPage(int nativePageIndex, out int newPageIndex)
     {
         newPageIndex = -1;
@@ -31,24 +15,24 @@ internal static class NativeQuickPanelImporter
         if (nativePageIndex is < 0 or >= Configuration.NativePageCount)
             return false;
 
-        C.EnsureDefaults();
-        var page = Configuration.CreateEmptyPage(GetNativeImportPageName(nativePageIndex));
+        Config.EnsureDefaults();
+        var page = Configuration.CreateEmptyPage(Config.SlotsPerPage, GetNativeImportPageName(nativePageIndex));
         ImportNativeSlots(page, nativePageIndex);
-        C.Pages.Add(page);
-        newPageIndex = C.Pages.Count - 1;
+        Config.Pages.Add(page);
+        newPageIndex = Config.Pages.Count - 1;
         return true;
     }
 
     public static bool TryBuildNativePagePreview(int nativePageIndex, out PanelPage page)
     {
-        page = Configuration.CreateEmptyPage();
+        page = Configuration.CreateEmptyPage(Configuration.NativeSlotsPerPage);
         if (!NativeQuickPanelReader.IsAvailable)
             return false;
 
         if (nativePageIndex is < 0 or >= Configuration.NativePageCount)
             return false;
 
-        ImportNativeSlots(page, nativePageIndex);
+        FillNativePreviewPage(page, nativePageIndex);
         return true;
     }
 
@@ -62,22 +46,40 @@ internal static class NativeQuickPanelImporter
             _ => T("page.nativeImportName", pageIndex + 1),
         };
 
-    private static void ImportNativePage(PanelPage panelPage, int nativePageIndex)
-    {
-        panelPage.Name = GetNativeImportPageName(nativePageIndex);
-        ImportNativeSlots(panelPage, nativePageIndex);
-    }
-
     private static void ImportNativeSlots(PanelPage panelPage, int nativePageIndex)
     {
+        Config.EnsureDefaults();
+        panelPage.Slots ??= [];
+        while (panelPage.Slots.Count < Config.SlotsPerPage)
+            panelPage.Slots.Add(new PanelSlot());
+
+        PanelLayout.PasteTopLeft(
+            panelPage.Slots,
+            Config.GridColumns,
+            Config.GridRows,
+            ReadNativeSlots(nativePageIndex),
+            Configuration.GridSize,
+            Configuration.GridSize);
+    }
+
+    private static void FillNativePreviewPage(PanelPage panelPage, int nativePageIndex)
+    {
         panelPage.Slots.Clear();
-        for (var index = 0; index < Configuration.SlotsPerPage; index++)
+        panelPage.Slots.AddRange(ReadNativeSlots(nativePageIndex));
+    }
+
+    private static List<PanelSlot> ReadNativeSlots(int nativePageIndex)
+    {
+        var slots = new List<PanelSlot>(Configuration.NativeSlotsPerPage);
+        for (var index = 0; index < Configuration.NativeSlotsPerPage; index++)
         {
-            panelPage.Slots.Add(
+            slots.Add(
                 NativeQuickPanelReader.TryGetSlot(nativePageIndex, index, out var type, out var commandId)
                     ? FromNativeSlot(type, commandId)
                     : new PanelSlot());
         }
+
+        return slots;
     }
 
     internal static PanelSlot FromHotbarSlot(RaptureHotbarModule.HotbarSlotType type, uint commandId) =>

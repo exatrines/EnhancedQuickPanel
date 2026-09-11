@@ -1,21 +1,50 @@
 ﻿using EnhancedQuickPanel.Models;
-using EnhancedQuickPanel.Services;
 
 namespace EnhancedQuickPanel;
 
 /// <summary>Persisted plugin settings: pages, slots, styles, display mode, and context-menu options.</summary>
 public sealed class Configuration
 {
-    public const int GridSize = 5;
+    public const string FileName = "DefaultConfig.json";
+    public const int CurrentConfigVersion = 1;
+    public const int GridSize = PanelLayout.BlockSize;
     public const int MinPageCount = 4;
     public const int NativePageCount = 4;
-    public const int SlotsPerPage = GridSize * GridSize;
+    public const int NativeSlotsPerPage = GridSize * GridSize;
+
+    public void Save() => ConfigurationStore.SaveActive(this);
+
+    public int ConfigVersion { get; set; } = CurrentConfigVersion;
 
     public bool Enabled { get; set; } = true;
 
-    public QuickPanelDisplayMode DisplayMode { get; set; } = QuickPanelDisplayMode.PluginOnly;
+    public bool IsCollapsed { get; set; }
+
+    public PanelDisplayMode DisplayMode { get; set; } = PanelDisplayMode.PluginOnly;
 
     public bool ShowEditButton { get; set; }
+
+    public bool ShowCollapseButton { get; set; } = true;
+
+    public bool PluginMiddleClickTogglesEnabled { get; set; } = true;
+
+    public bool PluginRightClickOpensSlotMenu { get; set; } = true;
+
+    public int LayoutBlockColumns { get; set; } = 1;
+
+    public int LayoutBlockRows { get; set; } = 1;
+
+    public int GridColumns => PanelLayout.Columns(LayoutBlockColumns);
+
+    public int GridRows => PanelLayout.Rows(LayoutBlockRows);
+
+    public int SlotsPerPage => GridColumns * GridRows;
+
+    public float ComputeGridWidth() =>
+        PanelLayout.ComputeSpan(GridColumns, SlotSize, SlotPadding);
+
+    public float ComputeGridHeight() =>
+        PanelLayout.ComputeSpan(GridRows, SlotSize, SlotPadding);
 
     public bool? ShowPageSelectorPopup { get; set; }
 
@@ -164,14 +193,6 @@ public sealed class Configuration
         SlotBgAlpha = color.W;
     }
 
-    public void SetSelectedSlotBorderColor(Vector4 color)
-    {
-        SelectedSlotBorderRed = color.X;
-        SelectedSlotBorderGreen = color.Y;
-        SelectedSlotBorderBlue = color.Z;
-        SelectedSlotBorderAlpha = color.W;
-    }
-
     public void SetTooltipBgColor(Vector4 color)
     {
         TooltipBgRed = color.X;
@@ -214,33 +235,42 @@ public sealed class Configuration
 
     public List<PanelPage> Pages { get; set; } = CreateDefaultPages();
 
-    public Configuration()
+    public static Configuration CreateNew()
     {
-        PanelStylePresets.ApplyDefault(this);
+        var config = new Configuration { ConfigVersion = CurrentConfigVersion };
+        config.FillMissing();
+        config.Validate();
+        return config;
     }
 
-    public static List<PanelPage> CreateDefaultPages()
+    public static List<PanelPage> CreateDefaultPages() =>
+        CreateDefaultPages(NativeSlotsPerPage);
+
+    public static List<PanelPage> CreateDefaultPages(int slotCount)
     {
         var pages = new List<PanelPage>(MinPageCount);
         for (var i = 0; i < MinPageCount; i++)
-            pages.Add(CreateEmptyPage(T("page.defaultName", i + 1)));
+            pages.Add(CreateEmptyPage(slotCount, T("page.defaultName", i + 1)));
 
         return pages;
     }
 
     public void EnsureDefaults()
     {
-        if (DisplayMode != QuickPanelDisplayMode.NativeOnly && DisplayMode != QuickPanelDisplayMode.PluginOnly)
-            DisplayMode = QuickPanelDisplayMode.PluginOnly;
+        FillMissing();
+        Validate();
+    }
 
-        Pages ??= CreateDefaultPages();
+    public void FillMissing()
+    {
+        Pages ??= CreateDefaultPages(SlotsPerPage);
 
         if (Pages.Count == 0)
-            Pages.Add(CreateEmptyPage(T("page.defaultName", 1)));
+            Pages.Add(CreateEmptyPage(SlotsPerPage, T("page.defaultName", 1)));
 
         for (var i = 0; i < Pages.Count; i++)
         {
-            EnsurePageSlots(Pages[i]);
+            FillPageSlots(Pages[i], SlotsPerPage);
             if (string.IsNullOrWhiteSpace(Pages[i].Name))
                 Pages[i].Name = T("page.defaultName", i + 1);
         }
@@ -251,10 +281,31 @@ public sealed class Configuration
         MacroGearLabelStyle ??= OverlayLabelStyleConfig.CreateDefaultMacroGear();
         PageBarButtons ??= PageBarButtonStyleConfig.CreateDefault();
         PanelUi ??= PanelUiStyleConfig.FromPageBarStyle(PageBarButtons);
-        PanelUi.EnsureDefaults();
         ContextMenu ??= ContextMenuStyleConfig.CreateDefault();
-        ContextMenu.EnsureDefaults();
         ContextMenuItems ??= ContextMenuItemsConfig.CreateDefault();
+    }
+
+    public void Validate()
+    {
+        if (DisplayMode != PanelDisplayMode.NativeOnly && DisplayMode != PanelDisplayMode.PluginOnly)
+            DisplayMode = PanelDisplayMode.PluginOnly;
+
+        LayoutBlockColumns = PanelLayout.ClampBlocks(LayoutBlockColumns);
+        LayoutBlockRows = PanelLayout.ClampBlocks(LayoutBlockRows);
+
+        ContextMenu?.EnsureDefaults();
+
+        if (Pages is null)
+            return;
+
+        foreach (var page in Pages)
+        {
+            if (page.Slots is null)
+                continue;
+
+            foreach (var slot in page.Slots)
+                slot.Sanitize();
+        }
     }
 
     public void AddPage(string? name = null)
@@ -263,7 +314,7 @@ public sealed class Configuration
         var pageName = string.IsNullOrWhiteSpace(name)
             ? GetNextPageName()
             : name.Trim();
-        Pages.Add(CreateEmptyPage(pageName));
+        Pages.Add(CreateEmptyPage(SlotsPerPage, pageName));
     }
 
     public string GetNextPageName()
@@ -285,21 +336,21 @@ public sealed class Configuration
         return true;
     }
 
-    public static PanelPage CreateEmptyPage(string? name = null)
+    public static PanelPage CreateEmptyPage(int slotCount, string? name = null)
     {
         var page = new PanelPage
         {
             Name = name ?? string.Empty,
         };
 
-        EnsurePageSlots(page);
+        FillPageSlots(page, slotCount);
         return page;
     }
 
-    private static void EnsurePageSlots(PanelPage page)
+    private static void FillPageSlots(PanelPage page, int slotCount)
     {
         page.Slots ??= [];
-        while (page.Slots.Count < SlotsPerPage)
+        while (page.Slots.Count < slotCount)
             page.Slots.Add(new PanelSlot());
     }
 }

@@ -1,4 +1,3 @@
-﻿using ECommons.Automation;
 using EnhancedQuickPanel.Models;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
@@ -15,7 +14,7 @@ internal static class SlotExecutor
         if (type != RaptureHotbarModule.HotbarSlotType.Macro && commandId == 0)
             return;
 
-        ScratchSlotHelper.TryExecute(type, commandId);
+        HotbarScratchSlot.TryExecute(type, commandId);
     }
 
     public static void Execute(PanelSlot slot)
@@ -25,6 +24,9 @@ internal static class SlotExecutor
 
         switch (slot.Kind)
         {
+            case PanelSlotKind.Plugin:
+                PluginShortcuts.Execute(slot, ImGuiMouseButton.Left);
+                break;
             case PanelSlotKind.Action:
                 if ((RaptureHotbarModule.HotbarSlotType)slot.CommandType
                     == RaptureHotbarModule.HotbarSlotType.Macro)
@@ -37,6 +39,9 @@ internal static class SlotExecutor
                 break;
             case PanelSlotKind.TextCommand:
                 ExecuteTextCommand(slot);
+                break;
+            case PanelSlotKind.Dalamud:
+                DalamudShortcuts.Execute(slot);
                 break;
         }
     }
@@ -58,4 +63,3 @@ internal static class SlotExecutor
         TextCommandExecutor.Execute(slot.TextBody);
     }
 }
-

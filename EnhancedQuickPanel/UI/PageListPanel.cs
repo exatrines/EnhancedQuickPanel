@@ -19,7 +19,7 @@ internal static class PageListPanel
         float width,
         float? totalHeight = null)
     {
-        C.EnsureDefaults();
+        Config.EnsureDefaults();
         if (pages.Count == 0)
             return false;
 
@@ -97,7 +97,7 @@ internal static class PageListPanel
             if (ImGui.InputText($"##eqpPageListName{pageIndex}", ref pageName, 64))
             {
                 pages[pageIndex].Name = pageName;
-                EzConfig.Save();
+                Config.Save();
             }
 
             PanelUiTextStyle.NotifyInputHover($"##eqpPageListName{pageIndex}");
@@ -108,7 +108,7 @@ internal static class PageListPanel
         ImGui.SameLine(0, spacing);
 
         var ctrlHeld = ImGui.GetIO().KeyCtrl;
-        var removable = C.CanRemovePage(pageIndex) && !PageReorderDragHandler.IsDragging;
+        var removable = Config.CanRemovePage(pageIndex) && !PageReorderDragHandler.IsDragging;
         var canDelete = removable && ctrlHeld;
         var deleteHint = removable && !ctrlHeld ? T("common.deleteHint") : null;
         if (CenteredIconButton.Draw(
@@ -120,10 +120,10 @@ internal static class PageListPanel
                 enabled: canDelete,
                 disabledTooltip: deleteHint)
             && canDelete
-            && C.TryRemovePage(pageIndex))
+            && Config.TryRemovePage(pageIndex))
         {
             selectedPage = Math.Clamp(selectedPage, 0, pages.Count - 1);
-            EzConfig.Save();
+            Config.Save();
             return true;
         }
 
@@ -171,19 +171,19 @@ internal static class PageListPanel
             return;
 
         var pageName = string.IsNullOrWhiteSpace(_newPageDraft)
-            ? C.GetNextPageName()
+            ? Config.GetNextPageName()
             : _newPageDraft.Trim();
-        C.AddPage(pageName);
+        Config.AddPage(pageName);
         selectedPage = pages.Count - 1;
         _newPageDraft = string.Empty;
-        EzConfig.Save();
+        Config.Save();
     }
 
     private static void DrawRowSwapHighlight(Vector2 min, Vector2 size)
     {
         var drawList = ImGui.GetWindowDrawList();
         var max = min + size;
-        var color = ImGui.ColorConvertFloat4ToU32(C.SlotDropTargetColor);
+        var color = ImGui.ColorConvertFloat4ToU32(Config.SlotDropTargetColor);
         drawList.AddRectFilled(min, max, color, ImGui.GetStyle().FrameRounding);
     }
 
@@ -191,7 +191,7 @@ internal static class PageListPanel
     {
         var drawList = ImGui.GetWindowDrawList();
         var max = min + size;
-        var color = ImGui.ColorConvertFloat4ToU32(C.SelectedSlotBorderColor);
+        var color = ImGui.ColorConvertFloat4ToU32(Config.SelectedSlotBorderColor);
         drawList.AddRect(min, max, color, ImGui.GetStyle().FrameRounding, ImDrawFlags.None, 2f);
     }
 }

@@ -52,7 +52,7 @@ internal static class SlotCooldownRenderer
             return;
 
         var text = FormatRemainingSeconds(secondsRemaining);
-        var style = C.CooldownLabelStyle;
+        var style = Config.CooldownLabelStyle;
         var fontSize = SlotOverlayFontSizeResolver.ResolveFontSize(slotMax.X - slotMin.X, style);
         var textSize = SlotOverlayTextRenderer.MeasureTextSize(
             text,

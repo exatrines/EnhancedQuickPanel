@@ -7,8 +7,6 @@ internal static class MacroIconCatalogIcons
 
     private static readonly Lazy<HashSet<uint>> IconIdSet = new(() => IconIds.Value.ToHashSet());
 
-    internal static IReadOnlyList<uint> AllIconIds => IconIds.Value;
-
     internal static bool Contains(uint iconId) => IconIdSet.Value.Contains(iconId);
 
     internal static IEnumerable<MacroIconEntry> BuildEntries()

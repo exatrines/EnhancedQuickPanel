@@ -43,10 +43,6 @@ public sealed class OverlayLabelStyleConfig
         EdgeAlpha = color.W;
     }
 
-    public void SetTextColorRgb(Vector3 color) => SetTextColor(new Vector4(color, 1f));
-
-    public void SetEdgeColorRgb(Vector3 color) => SetEdgeColor(new Vector4(color, 1f));
-
     public float ScaleFontSize(float baseFontSize) => baseFontSize * TextSizeScale;
 
     public static OverlayLabelStyleConfig CreateDefaultText() => new();

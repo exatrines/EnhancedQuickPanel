@@ -9,13 +9,6 @@ internal static unsafe class NativeQuickPanelUiReader
     private const int MaxNodesToVisit = 512;
     private const uint MaxLoadableIconId = ResolvedSlotIcon.MaxResolvableIconId;
 
-    public static bool TryGetSlotIcon(int slotIndex, out ResolvedSlotIcon icon)
-    {
-        icon = ResolvedSlotIcon.Empty;
-        return TryGetDragDropAt(slotIndex, out var dragDrop)
-            && TryReadDragDropIcon((AtkComponentDragDrop*)dragDrop, out icon);
-    }
-
     public static bool TryGetSlotOverlay(int slotIndex, out SlotOverlayInfo overlay)
     {
         overlay = SlotOverlayInfo.None;
@@ -50,33 +43,7 @@ internal static unsafe class NativeQuickPanelUiReader
         return TryGetIconImageTexturePath(componentIcon, out texturePath);
     }
 
-    public static bool TryGetSlotFrameSlice(int slotIndex, out SlotTextureSlice slice)
-    {
-        slice = default;
-        if (!TryGetDragDropAt(slotIndex, out var dragDropPtr))
-            return false;
-
-        var componentIcon = ((AtkComponentDragDrop*)dragDropPtr)->AtkComponentIcon;
-        if (componentIcon == null || componentIcon->FrameIcon == null)
-            return false;
-
-        return SlotImageResolver.TryGetImageNodeSlice(componentIcon->FrameIcon, out slice);
-    }
-
-    public static bool TryGetSlotIconSlice(int slotIndex, out SlotTextureSlice slice)
-    {
-        slice = default;
-        if (!TryGetDragDropAt(slotIndex, out var dragDropPtr))
-            return false;
-
-        var componentIcon = ((AtkComponentDragDrop*)dragDropPtr)->AtkComponentIcon;
-        if (componentIcon == null || componentIcon->IconImage == null)
-            return false;
-
-        return SlotImageResolver.TryGetImageNodeSlice(componentIcon->IconImage, out slice);
-    }
-
-    internal static bool TryGetImageNodeTexturePath(AtkImageNode* imageNode, out string texturePath)
+    private static bool TryGetImageNodeTexturePath(AtkImageNode* imageNode, out string texturePath)
     {
         texturePath = string.Empty;
         if (imageNode == null)
@@ -110,7 +77,7 @@ internal static unsafe class NativeQuickPanelUiReader
         return entries
             .OrderBy(entry => entry.SortY)
             .ThenBy(entry => entry.SortX)
-            .Take(Configuration.SlotsPerPage)
+            .Take(Configuration.NativeSlotsPerPage)
             .Select(entry => entry.DragDrop)
             .ToArray();
     }
@@ -188,7 +155,7 @@ internal static unsafe class NativeQuickPanelUiReader
     }
 
     private static bool TryGetDragDropAt(int slotIndex, out nint dragDrop) =>
-        QuickPanelUiCache.TryGetDragDropAt(slotIndex, out dragDrop);
+        NativeQuickPanelUiCache.TryGetDragDropAt(slotIndex, out dragDrop);
 
     /// <summary>A native drag-drop node with its sort position.</summary>
     private struct DragDropEntry(float sortY, float sortX, nint dragDrop)
@@ -215,7 +182,7 @@ internal static unsafe class NativeQuickPanelUiReader
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Addon node visit failed: {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Addon node visit failed: {ex.Message}");
         }
     }
 

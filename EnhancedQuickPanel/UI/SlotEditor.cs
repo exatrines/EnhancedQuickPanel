@@ -1,86 +1,52 @@
 ﻿using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using ECommons.ImGuiMethods;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.UI;
 
-/// <summary>UI for editing a single slot's kind, command, icon, and text content.</summary>
+// Slot content editor shown beside the panel grid.
 internal static class SlotEditor
 {
-    private static bool UnusedSlotEditorExpanded;
-
     private static byte _previewMacroSet = byte.MaxValue;
     private static byte _previewMacroIndex = byte.MaxValue;
     private static bool _previewAvailable;
     private static string _previewStatusMessage = string.Empty;
-    private static string _previewDisplayText = string.Empty;
     private static string _previewMacroBodyText = string.Empty;
 
-    private static readonly (RaptureHotbarModule.HotbarSlotType Type, string Label)[] CommonSlotTypes =
+    private static readonly PanelSlotKind[] EditableKinds =
     [
-        (RaptureHotbarModule.HotbarSlotType.Action, "Action"),
-        (RaptureHotbarModule.HotbarSlotType.GeneralAction, "General Action"),
-        (RaptureHotbarModule.HotbarSlotType.Item, "Item"),
-        (RaptureHotbarModule.HotbarSlotType.CraftAction, "Craft Action"),
-        (RaptureHotbarModule.HotbarSlotType.Emote, "Emote"),
-        (RaptureHotbarModule.HotbarSlotType.Mount, "Mount"),
-        (RaptureHotbarModule.HotbarSlotType.Macro, "Macro"),
-        (RaptureHotbarModule.HotbarSlotType.MainCommand, "Main Command"),
-        (RaptureHotbarModule.HotbarSlotType.GearSet, "Gear Set"),
-        (RaptureHotbarModule.HotbarSlotType.Companion, "Companion"),
-        (RaptureHotbarModule.HotbarSlotType.BuddyAction, "Buddy Action"),
-        (RaptureHotbarModule.HotbarSlotType.PetAction, "Pet Action"),
-        (RaptureHotbarModule.HotbarSlotType.Marker, "Marker"),
-        (RaptureHotbarModule.HotbarSlotType.FieldMarker, "Field Marker"),
+        PanelSlotKind.TextCommand,
+        PanelSlotKind.Dalamud,
+        PanelSlotKind.Plugin,
     ];
 
-    public static void Draw(PanelSlot slot, bool overlayPanel = false) =>
-        Draw(slot, overlayPanel, ref UnusedSlotEditorExpanded);
-
-    public static void Draw(PanelSlot slot, bool overlayPanel, ref bool slotEditorExpanded)
+    public static void Draw(PanelSlot slot, ref bool slotEditorExpanded)
     {
-        if (overlayPanel)
+        DrawHeaderBar(slot, ref slotEditorExpanded);
+        if (slot.Kind == PanelSlotKind.Plugin
+            && !string.IsNullOrWhiteSpace(slot.PluginInternalName)
+            && PluginShortcuts.Find(slot.PluginInternalName) == null)
         {
-            DrawOverlayHeaderBar(slot, ref slotEditorExpanded);
-            if (IsTextCommandEditorSlot(slot))
-                DrawOverlayTextArea(slot);
-            else if (slot.Kind == PanelSlotKind.Macro)
-                DrawOverlayMacroContent(slot);
-            return;
+            ImGui.Spacing();
+            using (new PanelUiEditFieldStyleScope(Config.PanelUi))
+            using (PanelUiTextStyle.PushText(Config.PanelUi))
+                PluginShortcutEditor.DrawUnavailableWarning(slot);
         }
-
-        DrawStandardHeader(slot);
-
-        switch (slot.Kind)
-        {
-            case PanelSlotKind.Action:
-                DrawActionFields(slot);
-                break;
-            case PanelSlotKind.Macro:
-                DrawMacroFields(slot);
-                break;
-            case PanelSlotKind.TextCommand:
-                DrawTextCommandFields(slot, overlayPanel: false);
-                break;
-        }
-
-        if (slot.IsConfigured && ImGui.Button(T("common.testExecute")))
-            Services.SlotExecutor.Execute(slot);
+        else if (IsTextCommandEditorSlot(slot))
+            DrawTextArea(slot);
+        else if (slot.Kind == PanelSlotKind.Macro)
+            DrawMacroContent(slot);
     }
 
-    private static void DrawStandardHeader(PanelSlot slot)
+    private static void DrawHeaderBar(PanelSlot slot, ref bool slotEditorExpanded)
     {
-        DrawKindCombo(slot);
-        DrawLabelAndIcon(slot);
-    }
-
-    private static void DrawOverlayHeaderBar(PanelSlot slot, ref bool slotEditorExpanded)
-    {
-        var style = C.PanelUi;
-        var nameEditable = IsTextCommandEditorSlot(slot);
+        var style = Config.PanelUi;
+        var isPlugin = slot.Kind == PanelSlotKind.Plugin;
+        var isDalamud = slot.Kind == PanelSlotKind.Dalamud;
+        var iconInteractive = IsTextCommandEditorSlot(slot) || isPlugin || isDalamud;
+        var trailingButtonCount = isPlugin ? 1 : 2;
         var blockHeight = ImGui.GetFrameHeight() * 2f + ImGui.GetStyle().ItemSpacing.Y;
         var iconButtonSize = new Vector2(blockHeight, blockHeight);
         var actionButtonSize = new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight());
@@ -88,18 +54,25 @@ internal static class SlotEditor
 
         using (new PanelUiEditFieldStyleScope(style))
         {
-            SlotIconPicker.DrawIconButton(slot, iconButtonSize, interactive: nameEditable);
+            SlotIconPicker.DrawIconButton(slot, iconButtonSize, interactive: iconInteractive);
             ImGui.SameLine(0f, spacing);
 
             var contentWidth = ImGui.GetContentRegionAvail().X;
             var nameRowWidth = Math.Max(
                 32f,
-                contentWidth - actionButtonSize.X * 2f - spacing * 2f);
+                contentWidth - actionButtonSize.X * trailingButtonCount - spacing * trailingButtonCount);
 
             ImGui.BeginGroup();
 
             var kindRowStartX = ImGui.GetCursorPosX();
-            ImGui.TextUnformatted(ResolveOverlayKindLabel(slot));
+            if (CanSwitchKind(slot))
+            {
+                ImGui.PushItemWidth(Math.Max(32f, contentWidth - actionButtonSize.X - spacing));
+                DrawKindCombo(slot);
+                ImGui.PopItemWidth();
+            }
+            else
+                ImGui.TextUnformatted(ResolveKindLabel(slot));
             ImGui.SameLine();
             ImGui.SetCursorPosX(kindRowStartX + contentWidth - actionButtonSize.X);
             using (new PanelUiButtonStyleScope(style))
@@ -109,26 +82,30 @@ internal static class SlotEditor
                     : FontAwesomeIcon.AngleDoubleRight;
                 if (CenteredIconButton.Draw(
                         expandIcon,
-                        "##eqpOverlayExpand",
+                        "##eqpSlotEditorExpand",
                         actionButtonSize,
                         style.TextColor,
                         style.TextHoverColor))
                     slotEditorExpanded = !slotEditorExpanded;
             }
 
-            if (nameEditable)
+            if (isPlugin)
+                PluginShortcutEditor.DrawPluginCombo(slot, nameRowWidth, "##eqpSlotEditorPlugin");
+            else if (isDalamud)
+                DalamudShortcuts.DrawCombo(slot, nameRowWidth, "##eqpSlotEditorDalamud");
+            else if (IsTextCommandEditorSlot(slot))
             {
                 var label = slot.Label;
                 ImGui.PushItemWidth(nameRowWidth);
-                using (PanelUiTextStyle.PushInputText(style, "##eqpOverlayName"))
+                using (PanelUiTextStyle.PushInputText(style, "##eqpSlotEditorName"))
                 {
-                    if (ImGui.InputTextWithHint("##eqpOverlayName", T("common.name"), ref label, 64))
+                    if (ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref label, 64))
                     {
                         slot.Label = label;
-                        EzConfig.Save();
+                        Config.Save();
                     }
 
-                    PanelUiTextStyle.NotifyInputHover("##eqpOverlayName");
+                    PanelUiTextStyle.NotifyInputHover("##eqpSlotEditorName");
                 }
 
                 ImGui.PopItemWidth();
@@ -139,8 +116,8 @@ internal static class SlotEditor
                 using (ImRaii.Disabled())
                 using (PanelUiTextStyle.PushTextDisabled(style))
                 {
-                    var displayName = ResolveOverlayDisplayName(slot);
-                    ImGui.InputTextWithHint("##eqpOverlayName", T("common.name"), ref displayName, 64, ImGuiInputTextFlags.ReadOnly);
+                    var displayName = ResolveDisplayName(slot);
+                    ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref displayName, 64, ImGuiInputTextFlags.ReadOnly);
                 }
 
                 ImGui.PopItemWidth();
@@ -149,22 +126,26 @@ internal static class SlotEditor
             ImGui.SameLine(0f, spacing);
             using (new PanelUiButtonStyleScope(style))
             {
-                var canExecute = slot.IsConfigured;
-                if (CenteredIconButton.Draw(
-                        FontAwesomeIcon.Play,
-                        "##eqpOverlayExecute",
-                        actionButtonSize,
-                        style.TextColor,
-                        style.TextHoverColor,
-                        enabled: canExecute)
-                    && canExecute)
-                    SlotExecutor.Execute(slot);
+                if (!isPlugin)
+                {
+                    var canExecute = slot.IsConfigured;
+                    if (CenteredIconButton.Draw(
+                            FontAwesomeIcon.Play,
+                            "##eqpSlotEditorExecute",
+                            actionButtonSize,
+                            style.TextColor,
+                            style.TextHoverColor,
+                            enabled: canExecute)
+                        && canExecute)
+                        SlotExecutor.Execute(slot);
 
-                ImGui.SameLine(0f, spacing);
+                    ImGui.SameLine(0f, spacing);
+                }
+
                 var ctrlHeld = ImGui.GetIO().KeyCtrl;
                 if (CenteredIconButton.Draw(
                         FontAwesomeIcon.Trash,
-                        "##eqpOverlayClear",
+                        "##eqpSlotEditorClear",
                         actionButtonSize,
                         style.TextColor,
                         style.TextHoverColor,
@@ -178,30 +159,79 @@ internal static class SlotEditor
         }
     }
 
-    private static void DrawOverlayTextArea(PanelSlot slot)
+    private static bool CanSwitchKind(PanelSlot slot) =>
+        slot.Kind is PanelSlotKind.Empty || EditableKinds.Contains(slot.Kind);
+
+    private static void DrawKindCombo(PanelSlot slot)
+    {
+        var current = EditableKinds.Contains(slot.Kind) ? slot.Kind : PanelSlotKind.TextCommand;
+        if (!ImGui.BeginCombo("##eqpSlotEditorKind", KindLabel(current)))
+            return;
+
+        foreach (var kind in EditableKinds)
+        {
+            if (ImGui.Selectable(KindLabel(kind), current == kind) && current != kind)
+                ApplyKind(slot, kind);
+        }
+
+        ImGui.EndCombo();
+    }
+
+    private static void ApplyKind(PanelSlot slot, PanelSlotKind kind)
+    {
+        slot.Label = string.Empty;
+        slot.CommandType = 0;
+        slot.CommandId = 0;
+        slot.MacroSet = 0;
+        slot.MacroIndex = 0;
+        slot.ResetPluginShortcut();
+        slot.ResetDalamudShortcut();
+        if (kind == PanelSlotKind.Plugin)
+        {
+            slot.Kind = PanelSlotKind.Plugin;
+            slot.TextBody = string.Empty;
+            slot.IconId = 0;
+        }
+        else if (kind == PanelSlotKind.Dalamud)
+        {
+            slot.Kind = PanelSlotKind.Dalamud;
+            slot.TextBody = string.Empty;
+            slot.IconId = 0;
+        }
+        else
+        {
+            slot.Kind = string.IsNullOrWhiteSpace(slot.TextBody)
+                ? PanelSlotKind.Empty
+                : PanelSlotKind.TextCommand;
+        }
+
+        Config.Save();
+    }
+
+    private static void DrawTextArea(PanelSlot slot)
     {
         ImGui.Spacing();
 
-        var style = C.PanelUi;
+        var style = Config.PanelUi;
         var text = slot.TextBody;
         var textAreaHeight = Math.Max(80f, ImGui.GetContentRegionAvail().Y);
         using (new PanelUiEditFieldStyleScope(style))
-        using (PanelUiTextStyle.PushInputText(style, "##eqpOverlayTextBody"))
+        using (PanelUiTextStyle.PushInputText(style, "##eqpSlotEditorTextBody"))
         {
-            if (ImGui.InputTextMultiline("##eqpOverlayTextBody", ref text, 4096, new Vector2(-1f, textAreaHeight)))
+            if (ImGui.InputTextMultiline("##eqpSlotEditorTextBody", ref text, 4096, new Vector2(-1f, textAreaHeight)))
             {
                 slot.TextBody = text;
                 slot.Kind = string.IsNullOrWhiteSpace(text)
                     ? PanelSlotKind.Empty
                     : PanelSlotKind.TextCommand;
-                EzConfig.Save();
+                Config.Save();
             }
 
-            PanelUiTextStyle.NotifyInputHover("##eqpOverlayTextBody");
+            PanelUiTextStyle.NotifyInputHover("##eqpSlotEditorTextBody");
         }
     }
 
-    private static string ResolveOverlayKindLabel(PanelSlot slot) =>
+    private static string ResolveKindLabel(PanelSlot slot) =>
         slot.Kind switch
         {
             PanelSlotKind.Empty or PanelSlotKind.TextCommand => T("slot.kind.textCommand"),
@@ -213,7 +243,7 @@ internal static class SlotEditor
             _ => KindLabel(slot.Kind),
         };
 
-    private static void DrawOverlayMacroContent(PanelSlot slot)
+    private static void DrawMacroContent(PanelSlot slot)
     {
         ImGui.Spacing();
 
@@ -227,147 +257,39 @@ internal static class SlotEditor
         }
 
         using (ImRaii.Disabled())
-        using (new PanelUiEditFieldStyleScope(C.PanelUi))
-        using (PanelUiTextStyle.PushInputText(C.PanelUi, "##eqpOverlayMacroBody"))
+        using (new PanelUiEditFieldStyleScope(Config.PanelUi))
+        using (PanelUiTextStyle.PushInputText(Config.PanelUi, "##eqpSlotEditorMacroBody"))
         {
             var body = string.IsNullOrWhiteSpace(_previewMacroBodyText)
                 ? T("slot.editor.macroNoLines")
                 : _previewMacroBodyText;
             var textAreaHeight = Math.Max(80f, ImGui.GetContentRegionAvail().Y);
             ImGui.InputTextMultiline(
-                "##eqpOverlayMacroBody",
+                "##eqpSlotEditorMacroBody",
                 ref body,
                 4096,
                 new Vector2(-1f, textAreaHeight),
                 ImGuiInputTextFlags.ReadOnly);
-            PanelUiTextStyle.NotifyInputHover("##eqpOverlayMacroBody");
+            PanelUiTextStyle.NotifyInputHover("##eqpSlotEditorMacroBody");
         }
     }
 
-    internal static void ClearSlotContents(PanelSlot slot) => ClearSlot(slot);
-
-    private static void ClearSlot(PanelSlot slot)
+    internal static void ClearSlotContents(PanelSlot slot)
     {
-        slot.Kind = PanelSlotKind.Empty;
-        slot.Label = string.Empty;
-        slot.IconId = 0;
-        slot.TextBody = string.Empty;
-        slot.CommandType = 0;
-        slot.CommandId = 0;
-        slot.MacroSet = 0;
-        slot.MacroIndex = 0;
-        EzConfig.Save();
+        slot.Clear();
+        Config.Save();
     }
 
     private static bool IsTextCommandEditorSlot(PanelSlot slot) =>
         slot.Kind is PanelSlotKind.Empty or PanelSlotKind.TextCommand;
 
-    private static string ResolveOverlayDisplayName(PanelSlot slot)
+    private static string ResolveDisplayName(PanelSlot slot)
     {
         if (!string.IsNullOrWhiteSpace(slot.Label))
             return slot.Label.Trim();
 
         var tooltip = SlotIconResolver.ResolveTooltip(slot);
         return string.IsNullOrWhiteSpace(tooltip) ? T("common.noName") : tooltip;
-    }
-
-    private static void DrawKindCombo(PanelSlot slot, string id = "##eqpKind")
-    {
-        using (new PanelUiEditFieldStyleScope(C.PanelUi))
-        using (PanelUiTextStyle.PushText(C.PanelUi))
-        {
-            var kind = slot.Kind;
-            if (ImGui.BeginCombo(id, KindLabel(kind)))
-            {
-                foreach (PanelSlotKind value in Enum.GetValues<PanelSlotKind>())
-                {
-                    if (ImGui.Selectable(KindLabel(value), value == kind))
-                    {
-                        slot.Kind = value;
-                        EzConfig.Save();
-                    }
-                }
-
-                ImGui.EndCombo();
-            }
-        }
-    }
-
-    private static void DrawLabelField(PanelSlot slot, string id)
-    {
-        var label = slot.Label;
-        if (ImGui.InputTextWithHint(id, T("common.displayName"), ref label, 64))
-        {
-            slot.Label = label;
-            EzConfig.Save();
-        }
-    }
-
-    private static void DrawLabelAndIcon(PanelSlot slot)
-    {
-        DrawLabelField(slot, T("common.displayName"));
-
-        var icon = (int)slot.IconId;
-        if (ImGui.InputInt(T("slot.editor.iconId"), ref icon))
-        {
-            slot.IconId = (uint)Math.Max(0, icon);
-            EzConfig.Save();
-        }
-    }
-
-    private static void DrawActionFields(PanelSlot slot)
-    {
-        using (new PanelUiEditFieldStyleScope(C.PanelUi))
-        using (PanelUiTextStyle.PushText(C.PanelUi))
-        {
-            var selected = CommonSlotTypes.FirstOrDefault(x => (byte)x.Type == slot.CommandType);
-            if (ImGui.BeginCombo(T("slot.editor.commandType"), selected.Label))
-            {
-                foreach (var entry in CommonSlotTypes)
-                {
-                    if (ImGui.Selectable(entry.Label, entry.Type == selected.Type))
-                    {
-                        slot.CommandType = (byte)entry.Type;
-                        EzConfig.Save();
-                    }
-                }
-
-                ImGui.EndCombo();
-            }
-        }
-
-        var commandId = (int)slot.CommandId;
-        if (ImGui.InputInt(T("slot.editor.commandId"), ref commandId))
-        {
-            slot.CommandId = (uint)Math.Max(0, commandId);
-            EzConfig.Save();
-        }
-    }
-
-    private static void DrawMacroFields(PanelSlot slot)
-    {
-        var macroSet = slot.MacroSet;
-        if (ImGui.RadioButton(T("slot.editor.macroPersonal"), macroSet == 0))
-        {
-            slot.MacroSet = 0;
-            EzConfig.Save();
-        }
-
-        ImGui.SameLine();
-        if (ImGui.RadioButton(T("slot.editor.macroShared"), macroSet == 1))
-        {
-            slot.MacroSet = 1;
-            EzConfig.Save();
-        }
-
-        var macroIndex = slot.MacroIndex + 1;
-        if (ImGui.SliderInt(T("slot.editor.macroNumber"), ref macroIndex, 1, 100))
-        {
-            slot.MacroIndex = (byte)(macroIndex - 1);
-            EzConfig.Save();
-        }
-
-        DrawMacroContentPreview(slot);
     }
 
     private static void RefreshMacroPreview(PanelSlot slot)
@@ -377,45 +299,7 @@ internal static class SlotEditor
         var content = MacroContentReader.Read(slot);
         _previewAvailable = content.IsAvailable;
         _previewStatusMessage = content.StatusMessage;
-        _previewDisplayText = content.DisplayText;
         _previewMacroBodyText = content.BodyText;
-    }
-
-    private static void DrawMacroContentPreview(PanelSlot slot)
-    {
-        ImGui.Spacing();
-        MirageUi.Text(T("slot.editor.macroPreview"), MirageUi.Color.Secondary);
-
-        var content = MacroContentReader.Read(slot);
-        if (!content.IsAvailable)
-        {
-            MirageUi.Text(content.StatusMessage, MirageUi.Color.Warning);
-            return;
-        }
-
-        var displayText = content.DisplayText;
-        ImGui.InputTextMultiline(
-            "##eqpMacroContentPreview",
-            ref displayText,
-            8192,
-            new Vector2(-1f, 160f),
-            ImGuiInputTextFlags.ReadOnly);
-
-        MirageUi.Text(content.StatusMessage, MirageUi.Color.Secondary);
-    }
-
-    private static void DrawTextCommandFields(PanelSlot slot, bool overlayPanel)
-    {
-        var text = slot.TextBody;
-        var editorHeight = overlayPanel ? 180f : 120f;
-        if (ImGui.InputTextMultiline(T("slot.kind.textCommand"), ref text, 4096, new Vector2(-1f, editorHeight)))
-        {
-            slot.TextBody = text;
-            EzConfig.Save();
-        }
-
-        if (!overlayPanel)
-            MirageUi.Text(T("slot.editor.textCommandHint"), MirageUi.Color.Secondary);
     }
 
     private static string KindLabel(PanelSlotKind kind) =>
@@ -425,6 +309,8 @@ internal static class SlotEditor
             PanelSlotKind.Action => T("slot.kind.action"),
             PanelSlotKind.Macro => T("slot.kind.macro"),
             PanelSlotKind.TextCommand => T("slot.kind.textCommand"),
+            PanelSlotKind.Dalamud => T("slot.kind.dalamud"),
+            PanelSlotKind.Plugin => T("slot.kind.plugin"),
             _ => kind.ToString(),
         };
 }

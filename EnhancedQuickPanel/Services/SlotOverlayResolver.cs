@@ -94,7 +94,7 @@ internal static unsafe class SlotOverlayResolver
         }
         catch (Exception ex)
         {
-            PluginLog.Debug($"[EQP] Item quantity read failed ({type} #{commandId}): {ex.Message}");
+            PluginServices.Log.Debug($"[EQP] Item quantity read failed ({type} #{commandId}): {ex.Message}");
         }
 
         var isHq = icon.IsHighQuality || InventorySlotHelper.IsHighQuality(type, commandId);

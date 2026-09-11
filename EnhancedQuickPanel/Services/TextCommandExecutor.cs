@@ -1,4 +1,6 @@
-﻿using ECommons.Automation;
+using System.Text;
+using FFXIVClientStructs.FFXIV.Client.System.String;
+using FFXIVClientStructs.FFXIV.Client.UI;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -84,12 +86,32 @@ internal static class TextCommandExecutor
 
     private static void ExecuteLine(string line)
     {
-        GenericHelpers.Safe(() =>
-        {
-            if (line.StartsWith('/'))
-                Chat.ExecuteCommand(line);
-            else
-                Chat.SendMessage(line);
-        });
+        AddonAccess.Safe(() => SendChatBox(line));
+    }
+
+    private static unsafe void SendChatBox(string message)
+    {
+        var bytes = Encoding.UTF8.GetBytes(message);
+        if (bytes.Length == 0)
+            throw new ArgumentException("message is empty", nameof(message));
+        if (bytes.Length > 500)
+            throw new ArgumentException("message is longer than 500 bytes", nameof(message));
+        if (message.Length != Sanitize(message).Length)
+            throw new ArgumentException("message contained invalid characters", nameof(message));
+
+        var terminated = new byte[bytes.Length + 1];
+        bytes.CopyTo(terminated, 0);
+        var utf8 = Utf8String.FromSequence(terminated);
+        UIModule.Instance()->ProcessChatBoxEntry(utf8);
+        utf8->Dtor(true);
+    }
+
+    private static unsafe string Sanitize(string text)
+    {
+        var utf8 = Utf8String.FromString(text);
+        utf8->SanitizeString((AllowedEntities)0x27F);
+        var sanitised = utf8->ToString();
+        utf8->Dtor(true);
+        return sanitised;
     }
 }

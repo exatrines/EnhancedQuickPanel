@@ -12,7 +12,6 @@ internal readonly struct PanelUiDropdownStyleScope : IDisposable
 
     public PanelUiDropdownStyleScope(PanelUiStyleConfig style)
     {
-        style.EnsureDefaults();
         var dropdownBg = style.DropdownBgColor;
         _windowBg = ImRaii.PushColor(ImGuiCol.WindowBg, dropdownBg);
         _popupBg = ImRaii.PushColor(ImGuiCol.PopupBg, dropdownBg);
@@ -36,7 +35,6 @@ internal readonly struct PanelUiEditFieldStyleScope : IDisposable
 
     public PanelUiEditFieldStyleScope(PanelUiStyleConfig style)
     {
-        style.EnsureDefaults();
         var fieldBg = style.FieldBgColor;
         _frameBg = ImRaii.PushColor(ImGuiCol.FrameBg, fieldBg);
         _frameBgHovered = ImRaii.PushColor(ImGuiCol.FrameBgHovered, fieldBg);
@@ -114,6 +112,7 @@ internal readonly struct ContextMenuStyleScope : IDisposable
 /// <summary>Helpers for drawing a single context-menu entry with consistent styling.</summary>
 internal static class ContextMenuItem
 {
+    public const float SeparatorHeight = 9f;
     private const float IconTextGap = 6f;
 
     public static float ComputeRequiredWidth(ContextMenuStyleConfig style, ReadOnlySpan<string> labels)
@@ -133,9 +132,6 @@ internal static class ContextMenuItem
         return Math.Max(style.Width, minWidth);
     }
 
-    public static float ComputeRequiredWidth(ContextMenuStyleConfig style, params string[] labels) =>
-        ComputeRequiredWidth(style, labels.AsSpan());
-
     public static float ComputeRowHeight(ContextMenuStyleConfig style, ReadOnlySpan<string> labels)
     {
         style.EnsureDefaults();
@@ -152,8 +148,40 @@ internal static class ContextMenuItem
         return Math.Max(textHeight, iconSize.Y) + padding * 2f;
     }
 
-    public static float ComputeRowHeight(ContextMenuStyleConfig style, params string[] labels) =>
-        ComputeRowHeight(style, labels.AsSpan());
+    public static void DrawHeader(string label, ContextMenuStyleConfig style, float rowHeight)
+    {
+        style.EnsureDefaults();
+        var padding = style.Padding;
+        var textSize = ImGui.CalcTextSize(label);
+        var itemWidth = ImGui.GetContentRegionAvail().X;
+        if (itemWidth <= 0f)
+            itemWidth = Math.Max(0f, style.Width - padding * 2f);
+
+        var cursor = ImGui.GetCursorScreenPos();
+        ImGui.Dummy(new Vector2(itemWidth, rowHeight));
+
+        var textColor = style.TextColor;
+        var color = ImGui.ColorConvertFloat4ToU32(new Vector4(textColor.X, textColor.Y, textColor.Z, textColor.W * 0.7f));
+        ImGui.GetWindowDrawList().AddText(
+            new Vector2(cursor.X + padding, cursor.Y + (rowHeight - textSize.Y) * 0.5f),
+            color,
+            label);
+    }
+
+    public static void DrawSeparator(ContextMenuStyleConfig style)
+    {
+        style.EnsureDefaults();
+        var width = ImGui.GetContentRegionAvail().X;
+        if (width <= 0f)
+            width = Math.Max(0f, style.Width - style.Padding * 2f);
+
+        var pos = ImGui.GetCursorScreenPos();
+        var textColor = style.TextColor;
+        var color = ImGui.ColorConvertFloat4ToU32(new Vector4(textColor.X, textColor.Y, textColor.Z, textColor.W * 0.35f));
+        var y = pos.Y + SeparatorHeight * 0.5f;
+        ImGui.GetWindowDrawList().AddLine(new Vector2(pos.X, y), new Vector2(pos.X + width, y), color);
+        ImGui.Dummy(new Vector2(width, SeparatorHeight));
+    }
 
     public static bool Draw(
         string label,
@@ -161,11 +189,10 @@ internal static class ContextMenuItem
         string id,
         ContextMenuStyleConfig style,
         string? trailingLabel = null,
-        float indent = 0f)
+        bool enabled = true,
+        string? disabledTooltip = null)
     {
         style.EnsureDefaults();
-        if (indent > 0f)
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + indent);
 
         var padding = new Vector2(style.Padding, style.Padding);
         var textSize = ImGui.CalcTextSize(label);
@@ -186,20 +213,29 @@ internal static class ContextMenuItem
             itemWidth = Math.Max(0f, style.Width - style.Padding * 2f);
         var itemHeight = contentHeight + padding.Y * 2f;
 
+        if (!enabled)
+            ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.6f);
+
+        bool clicked;
         using (ImRaii.PushId(id))
         using (ImRaii.PushStyle(ImGuiStyleVar.FramePadding, padding))
         using (ImRaii.PushColor(ImGuiCol.Header, style.ButtonBgColor))
         using (ImRaii.PushColor(ImGuiCol.HeaderHovered, style.ButtonBgHoverColor))
         using (ImRaii.PushColor(ImGuiCol.HeaderActive, style.ButtonBgHoverColor))
         {
-            var clicked = ImGui.Selectable(
+            clicked = ImGui.Selectable(
                 "##eqpContextMenuItem",
                 false,
                 ImGuiSelectableFlags.None,
                 new Vector2(itemWidth, itemHeight));
 
-            var hovered = ImGui.IsItemHovered();
-            var textColor = hovered ? style.TextHoverColor : style.TextColor;
+            var hovered = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
+            if (!enabled && hovered && !string.IsNullOrEmpty(disabledTooltip))
+                ImGui.SetTooltip(disabledTooltip);
+
+            var textColor = !enabled
+                ? style.TextColor
+                : hovered ? style.TextHoverColor : style.TextColor;
             var color = ImGui.ColorConvertFloat4ToU32(textColor);
             var rectMin = ImGui.GetItemRectMin();
             var rectMax = ImGui.GetItemRectMax();
@@ -223,9 +259,12 @@ internal static class ContextMenuItem
                     rectMin.Y + (rowHeight - trailingSize.Y) * 0.5f);
                 drawList.AddText(trailingPos, color, trailingLabel);
             }
-
-            return clicked;
         }
+
+        if (!enabled)
+            ImGui.PopStyleVar();
+
+        return clicked && enabled;
     }
 }
 
@@ -237,11 +276,8 @@ internal static class PanelUiTextStyle
     public static ImRaii.ColorDisposable PushText(PanelUiStyleConfig style) =>
         ImRaii.PushColor(ImGuiCol.Text, style.TextColor);
 
-    public static ImRaii.ColorDisposable PushTextDisabled(PanelUiStyleConfig style)
-    {
-        style.EnsureDefaults();
-        return ImRaii.PushColor(ImGuiCol.TextDisabled, style.PlaceholderTextColor);
-    }
+    public static ImRaii.ColorDisposable PushTextDisabled(PanelUiStyleConfig style) =>
+        ImRaii.PushColor(ImGuiCol.TextDisabled, style.PlaceholderTextColor);
 
     public static IDisposable PushInputText(PanelUiStyleConfig style, string id)
     {

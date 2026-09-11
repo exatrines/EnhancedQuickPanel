@@ -21,21 +21,13 @@ internal static unsafe class NativeQuickPanelReader
         commandId = 0;
 
         var module = QuickPanelModule.Instance();
-        if (module == null || page is < 0 or >= Configuration.NativePageCount || index is < 0 or >= Configuration.SlotsPerPage)
+        if (module == null || page is < 0 or >= Configuration.NativePageCount || index is < 0 or >= Configuration.NativeSlotsPerPage)
             return false;
 
         GetPageData(module, page, out var types, out var ids);
         type = types[index];
         commandId = ids[index];
         return true;
-    }
-
-    public static bool IsSlotEmpty(int page, int index)
-    {
-        if (!TryGetSlotRaw(page, index, out var type, out var commandId))
-            return true;
-
-        return type == RaptureHotbarModule.HotbarSlotType.Empty || commandId == 0;
     }
 
     private static void GetPageData(
