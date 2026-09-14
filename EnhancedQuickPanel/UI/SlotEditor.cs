@@ -25,14 +25,14 @@ internal static class SlotEditor
     public static void Draw(PanelSlot slot, ref bool slotEditorExpanded)
     {
         DrawHeaderBar(slot, ref slotEditorExpanded);
-        if (slot.Kind == PanelSlotKind.Plugin
-            && !string.IsNullOrWhiteSpace(slot.PluginInternalName)
-            && PluginShortcuts.Find(slot.PluginInternalName) == null)
+        if (slot.Kind == PanelSlotKind.Plugin)
         {
-            ImGui.Spacing();
             using (new PanelUiEditFieldStyleScope(Config.PanelUi))
             using (PanelUiTextStyle.PushText(Config.PanelUi))
                 PluginShortcutEditor.DrawUnavailableWarning(slot);
+
+            using (new PanelUiEditFieldStyleScope(Config.PanelUi))
+                PluginShortcutPicker.DrawEmbedded(slot);
         }
         else if (IsTextCommandEditorSlot(slot))
             DrawTextArea(slot);
@@ -90,7 +90,7 @@ internal static class SlotEditor
             }
 
             if (isPlugin)
-                PluginShortcutEditor.DrawPluginCombo(slot, nameRowWidth, "##eqpSlotEditorPlugin");
+                PluginShortcutEditor.DrawCurrentName(slot, nameRowWidth);
             else if (isDalamud)
                 DalamudShortcuts.DrawCombo(slot, nameRowWidth, "##eqpSlotEditorDalamud");
             else if (IsTextCommandEditorSlot(slot))

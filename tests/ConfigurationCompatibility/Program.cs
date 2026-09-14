@@ -24,7 +24,19 @@ Require(JsonSerializer.Serialize(restored) == encoded && restored.Slots[0].IsCon
 var defaults = JsonSerializer.Deserialize<PanelSlot>("""{"Kind":4,"PluginInternalName":"Example"}""")!;
 Require(defaults.IconId == 0 && defaults.LeftClickAction == PluginShortcutAction.MainUi
     && defaults.RightClickAction == PluginShortcutAction.ConfigUi
-    && defaults.MiddleClickAction == PluginShortcutAction.ToggleEnabled, "Missing fields use defaults");
+    && defaults.MiddleClickAction == PluginShortcutAction.ToggleEnabled
+    && defaults.PluginWorkingPluginId == "", "Missing fields use defaults");
+var keptWorkingId = JsonSerializer.Deserialize<PanelSlot>(
+    """{"Kind":4,"PluginInternalName":"Example","PluginWorkingPluginId":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}""")!;
+Require(keptWorkingId.PluginWorkingPluginId == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "Plugin working id is preserved");
+var swapped = new PanelSlot { PluginInternalName = "A", PluginWorkingPluginId = "id-a" };
+swapped.SwapPluginShortcutWith(new PanelSlot { PluginInternalName = "B", PluginWorkingPluginId = "id-b" });
+Require(swapped.PluginInternalName == "B" && swapped.PluginWorkingPluginId == "id-b",
+    "Swap moves plugin working id");
+swapped.ResetPluginShortcut();
+Require(swapped.PluginInternalName == "" && swapped.PluginWorkingPluginId == "",
+    "Reset clears plugin working id");
 Require(new PanelSlot().MiddleClickAction == PluginShortcutAction.ToggleEnabled,
     "New slots default middle click to enable/disable");
 var keptNone = JsonSerializer.Deserialize<PanelSlot>(

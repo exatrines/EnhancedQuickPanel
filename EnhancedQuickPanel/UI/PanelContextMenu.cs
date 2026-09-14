@@ -228,7 +228,7 @@ internal static class PanelContextMenu
         var rows = new List<MenuActionRow>(8);
         if (model.IsPlugin)
         {
-            var busy = PluginLifecycleToggle.IsBusy(slot.PluginInternalName);
+            var busy = PluginLifecycleToggle.IsBusy(slot.PluginInternalName, slot.PluginWorkingPluginId);
             var busyHint = T("shortcut.toggleBusy");
             rows.Add(new(
                 T("slotMenu.openPluginUi"),
@@ -246,12 +246,12 @@ internal static class PanelContextMenu
                 DisabledTooltip: busyHint));
             if (model.ShowToggle)
             {
-                var canToggle = PluginLifecycleToggle.CanToggle(slot.PluginInternalName, out var toggleHint);
+                var canToggle = PluginLifecycleToggle.CanToggle(slot.PluginInternalName, slot.PluginWorkingPluginId, out var toggleHint);
                 rows.Add(new(
                     T("slotMenu.togglePlugin"),
                     FontAwesomeIcon.PowerOff,
                     "##eqpSlotToggle",
-                    () => PluginLifecycleToggle.Request(slot.PluginInternalName),
+                    () => PluginShortcuts.ToggleEnabled(slot),
                     Enabled: canToggle,
                     DisabledTooltip: toggleHint));
             }

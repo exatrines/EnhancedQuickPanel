@@ -8,7 +8,7 @@
   "ImageUrls": [
     "https://raw.githubusercontent.com/exatrines/EnhancedQuickPanel/master/docs/screenshots/en/overlay.png"
   ],
-  "AssemblyVersion": "1.0.0.0",
+  "AssemblyVersion": "1.0.1.0",
   "RepoUrl": "https://github.com/exatrines/EnhancedQuickPanel",
   "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/latest/download/EnhancedQuickPanel.zip",
   "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/latest/download/EnhancedQuickPanel.zip",

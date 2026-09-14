@@ -101,7 +101,7 @@ internal static unsafe class SlotTooltipResolver
     {
         var name = !string.IsNullOrWhiteSpace(slot.Label)
             ? slot.Label.Trim()
-            : PluginShortcuts.Find(slot.PluginInternalName)?.Name ?? slot.PluginInternalName;
+            : PluginShortcuts.Find(slot)?.Name ?? slot.PluginInternalName;
         if (PluginShortcuts.ResolveVisual(slot) != PluginShortcutVisual.Disabled)
             return name;
         return T("slot.tooltip.pluginDisabled", name);

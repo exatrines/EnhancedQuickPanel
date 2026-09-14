@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1.0] - 2026-09-14
+
+### Added
+
+- Plugin slot editor lists installed plugins with icons and search (name, author, or internal name). Same-named installs are separate rows
+- Plugin slots remember the chosen install, so left / right / middle-click stay on that copy when another plugin shares the same internal name
+
+### Changed
+
+- Plugin listing in the slot editor is always the search list (the combo picker is gone)
+- Plugin icon on the pink frame used for DalamudPlugins
+
+### Fixed
+
+- Enabling a plugin is refused when another copy of the same internal name is already loaded
+- A slot no longer silently switches to a different copy if the chosen install is missing
+
 ## [1.0.0.0] - 2026-09-11
 
 ### Added
@@ -32,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.0.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.1.0...HEAD
+[1.0.1.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.0.0...v1.0.1.0
 [1.0.0.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v0.1.3.0...v1.0.0.0
 [0.1.3.0]: https://github.com/exatrines/EnhancedQuickPanel/releases/tag/v0.1.3.0

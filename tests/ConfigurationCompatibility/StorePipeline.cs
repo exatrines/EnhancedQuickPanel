@@ -111,6 +111,7 @@ internal static class StorePipeline
                   "ShowCollapseButton": false,
                   "PluginMiddleClickTogglesEnabled": false,
                   "PluginRightClickOpensSlotMenu": false,
+                  "PluginPickerUsesPopup": false,
                   "OverlayPosX": 0,
                   "WindowBgAlpha": 0,
                   "Pages": [{ "Name": "A", "Slots": [{ "Kind": 0 }] }]

@@ -52,6 +52,7 @@ public sealed class PanelSlot
     public DalamudShortcutKind DalamudShortcut { get; set; } = DalamudShortcutKind.Plugins;
 
     public string PluginInternalName { get; set; } = string.Empty;
+    public string PluginWorkingPluginId { get; set; } = string.Empty;
     public PluginShortcutAction LeftClickAction { get; set; } = PluginShortcutAction.MainUi;
     public PluginShortcutAction RightClickAction { get; set; } = PluginShortcutAction.ConfigUi;
     public PluginShortcutAction MiddleClickAction { get; set; } = PluginShortcutAction.ToggleEnabled;
@@ -128,6 +129,7 @@ public sealed class PanelSlot
     public void ResetPluginShortcut()
     {
         PluginInternalName = string.Empty;
+        PluginWorkingPluginId = string.Empty;
         LeftClickAction = PluginShortcutAction.MainUi;
         RightClickAction = PluginShortcutAction.ConfigUi;
         MiddleClickAction = PluginShortcutAction.ToggleEnabled;
@@ -139,6 +141,7 @@ public sealed class PanelSlot
     public void SwapPluginShortcutWith(PanelSlot other)
     {
         (PluginInternalName, other.PluginInternalName) = (other.PluginInternalName, PluginInternalName);
+        (PluginWorkingPluginId, other.PluginWorkingPluginId) = (other.PluginWorkingPluginId, PluginWorkingPluginId);
         (LeftClickAction, other.LeftClickAction) = (other.LeftClickAction, LeftClickAction);
         (RightClickAction, other.RightClickAction) = (other.RightClickAction, RightClickAction);
         (MiddleClickAction, other.MiddleClickAction) = (other.MiddleClickAction, MiddleClickAction);

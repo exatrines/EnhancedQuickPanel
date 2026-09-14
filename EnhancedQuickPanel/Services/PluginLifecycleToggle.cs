@@ -11,25 +11,32 @@ internal static class PluginLifecycleToggle
     private static bool apiUnavailable;
     private static readonly ConcurrentDictionary<string, byte> Running = new();
 
-    public static bool IsBusy(string name) =>
-        !string.IsNullOrEmpty(name) && Running.ContainsKey(name);
+    public static bool IsBusy(string internalName, string workingPluginId)
+    {
+        var key = BusyKey(internalName, workingPluginId);
+        return !string.IsNullOrEmpty(key)
+            && (Running.ContainsKey(key)
+                || (!string.IsNullOrEmpty(internalName) && Running.ContainsKey(internalName)));
+    }
 
-    public static bool CanToggle(string internalName, out string? reason) =>
-        TryCreateJob(internalName, out _, out reason);
+    public static bool CanToggle(string internalName, string workingPluginId, out string? reason) =>
+        TryCreateJob(internalName, workingPluginId, out _, out reason);
 
-    public static void Request(string internalName)
+    public static void Request(string internalName, string workingPluginId)
     {
         if (PluginLifetime.IsStopping)
             return;
 
-        if (!TryCreateJob(internalName, out var job, out var reason))
+        if (!TryCreateJob(internalName, workingPluginId, out var job, out var reason))
         {
             NotifyImmediate(reason);
             return;
         }
 
-        if (!Running.TryAdd(internalName, 0))
+        if (!Running.TryAdd(job.BusyKey, 0))
             return;
+        if (!string.Equals(job.BusyKey, job.InternalName, StringComparison.Ordinal))
+            Running.TryAdd(job.InternalName, 0);
 
         _ = Task.Run(() => RunJobAsync(job));
     }
@@ -48,6 +55,7 @@ internal static class PluginLifecycleToggle
         }
         finally
         {
+            Running.TryRemove(job.BusyKey, out _);
             Running.TryRemove(job.InternalName, out _);
         }
     }
@@ -85,7 +93,7 @@ internal static class PluginLifecycleToggle
         }
     }
 
-    private static bool TryCreateJob(string internalName, out ToggleJob job, out string? reason)
+    private static bool TryCreateJob(string internalName, string workingPluginId, out ToggleJob job, out string? reason)
     {
         job = default;
         reason = null;
@@ -101,13 +109,13 @@ internal static class PluginLifecycleToggle
             return false;
         }
 
-        if (IsBusy(internalName))
+        if (IsBusy(internalName, workingPluginId))
         {
             reason = T("shortcut.toggleBusy");
             return false;
         }
 
-        var local = PluginShortcuts.FindLocal(internalName);
+        var local = PluginShortcuts.FindLocal(internalName, workingPluginId);
         if (local == null)
         {
             reason = T("shortcut.unavailable");
@@ -118,9 +126,14 @@ internal static class PluginLifecycleToggle
         if (!TryGetOwningProfile(local, type, out var profile, out reason))
             return false;
 
-        var isLoaded = type.GetProperty("IsLoaded")?.GetValue(local) as bool? ?? false;
+        var isLoaded = PluginShortcuts.IsLocalLoaded(local);
+        if (!isLoaded && PluginShortcuts.HasOtherLoadedInstance(local))
+        {
+            reason = T("shortcut.toggleAlreadyEnabled");
+            return false;
+        }
         var workingId = type.GetProperty("EffectiveWorkingPluginId")?.GetValue(local);
-        var persistedName = ReadInternalName(local, type);
+        var persistedName = PluginShortcuts.ReadLocalInternalName(local);
         var previousWanted = ReadWantsPlugin(profile, workingId);
         if (workingId == null || string.IsNullOrEmpty(persistedName) || previousWanted == null)
         {
@@ -128,8 +141,10 @@ internal static class PluginLifecycleToggle
             return false;
         }
 
+        var busyKey = BusyKey(internalName, workingId is Guid guid && guid != Guid.Empty ? guid.ToString("D") : workingPluginId);
         job = new ToggleJob(
             internalName,
+            busyKey,
             local,
             type,
             profile,
@@ -141,6 +156,9 @@ internal static class PluginLifecycleToggle
         reason = null;
         return true;
     }
+
+    private static string BusyKey(string internalName, string workingPluginId) =>
+        !string.IsNullOrWhiteSpace(workingPluginId) ? workingPluginId.ToLowerInvariant() : internalName;
 
     private static async Task InvokeLoadAsync(object local, Type type)
     {
@@ -204,14 +222,6 @@ internal static class PluginLifecycleToggle
             return null;
         var result = profile.GetType().GetMethod("WantsPlugin")?.Invoke(profile, [workingId]);
         return result is bool wanted ? wanted : null;
-    }
-
-    private static string? ReadInternalName(object local, Type type)
-    {
-        if (type.GetProperty("InternalName")?.GetValue(local) is string name && !string.IsNullOrEmpty(name))
-            return name;
-        var manifest = type.GetProperty("Manifest")?.GetValue(local);
-        return manifest?.GetType().GetProperty("InternalName")?.GetValue(manifest) as string;
     }
 
     private static bool TryGetOwningProfile(object local, Type type, out object profile, out string? reason)
@@ -323,6 +333,7 @@ internal static class PluginLifecycleToggle
 
     private readonly record struct ToggleJob(
         string InternalName,
+        string BusyKey,
         object Local,
         Type LocalType,
         object Profile,
