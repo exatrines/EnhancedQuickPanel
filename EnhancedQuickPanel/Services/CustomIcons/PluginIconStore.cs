@@ -12,6 +12,7 @@ internal static class PluginIconStore
     private const string FolderName = "Plugins";
 
     private static readonly ConcurrentDictionary<string, ISharedImmediateTexture> TextureCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> PathByStem = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, byte> InFlight = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, byte> Failed = new(StringComparer.Ordinal);
 
@@ -26,6 +27,7 @@ internal static class PluginIconStore
     public static void Dispose()
     {
         TextureCache.Clear();
+        PathByStem.Clear();
         InFlight.Clear();
         Failed.Clear();
     }
@@ -135,6 +137,12 @@ internal static class PluginIconStore
     private static bool TryFindFile(string stem, out string path)
     {
         path = string.Empty;
+        if (PathByStem.TryGetValue(stem, out var cached) && File.Exists(cached))
+        {
+            path = cached;
+            return true;
+        }
+
         if (!Directory.Exists(_directory))
             return false;
 
@@ -144,6 +152,7 @@ internal static class PluginIconStore
                 continue;
             if (!string.Equals(CustomIconFileNames.GetStem(filePath), stem, StringComparison.OrdinalIgnoreCase))
                 continue;
+            PathByStem[stem] = filePath;
             path = filePath;
             return true;
         }
@@ -172,6 +181,7 @@ internal static class PluginIconStore
 
     private static void InvalidateStem(string stem)
     {
+        PathByStem.TryRemove(stem, out _);
         foreach (var key in TextureCache.Keys)
         {
             if (string.Equals(CustomIconFileNames.GetStem(key), stem, StringComparison.OrdinalIgnoreCase))

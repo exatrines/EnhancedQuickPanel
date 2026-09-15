@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.4.0] - 2026-09-15
+
+### Fixed
+
+- Plugin shortcut slots reuse the installed plugin's icon file instead of asking Dalamud for it every frame
+
 ## [1.0.3.0] - 2026-09-15
 
 ### Fixed
@@ -67,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...HEAD
+[1.0.4.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...v1.0.4.0
 [1.0.3.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.2.0...v1.0.3.0
 [1.0.2.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.1.0...v1.0.2.0
 [1.0.1.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.0.0...v1.0.1.0
