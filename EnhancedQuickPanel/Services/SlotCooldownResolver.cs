@@ -127,10 +127,54 @@ internal static unsafe class SlotCooldownResolver
         out float total,
         out float elapsed)
     {
-        actionType = default;
-        actionId = 0;
         total = 0f;
         elapsed = 0f;
+        if (!TryGetRecastTarget(scratch, out actionType, out actionId))
+            return false;
+
+        var actionManager = ActionManager.Instance();
+        if (actionManager == null)
+            return false;
+
+        total = actionManager->GetRecastTime(actionType, actionId);
+        elapsed = actionManager->GetRecastTimeElapsed(actionType, actionId);
+        return total > 0f || elapsed > 0f;
+    }
+
+    internal static SlotCooldownInfo ResolveFromAction(ActionType actionType, uint actionId)
+    {
+        if (actionId == 0 || (byte)actionType == InvalidActionTypeByte)
+            return SlotCooldownInfo.None;
+
+        try
+        {
+            var actionManager = ActionManager.Instance();
+            if (actionManager == null)
+                return SlotCooldownInfo.None;
+
+            var total = actionManager->GetRecastTime(actionType, actionId);
+            var elapsed = actionManager->GetRecastTimeElapsed(actionType, actionId);
+            var remaining = Math.Max(0f, total - elapsed);
+            if (remaining <= 0.05f)
+                return SlotCooldownInfo.None;
+
+            var fraction = total > 0f ? Math.Clamp(remaining / total, 0f, 1f) : 1f;
+            return new SlotCooldownInfo(fraction, remaining);
+        }
+        catch (Exception ex)
+        {
+            PluginServices.Log.Debug($"[EQP] Cooldown read failed ({actionType} #{actionId}): {ex.Message}");
+            return SlotCooldownInfo.None;
+        }
+    }
+
+    internal static bool TryGetRecastTarget(
+        RaptureHotbarModule.HotbarSlot scratch,
+        out ActionType actionType,
+        out uint actionId)
+    {
+        actionType = default;
+        actionId = 0;
 
         var slotType = scratch.ApparentSlotType != RaptureHotbarModule.HotbarSlotType.Empty
             ? scratch.ApparentSlotType
@@ -142,16 +186,7 @@ internal static unsafe class SlotCooldownResolver
         }
 
         actionId = scratch.ApparentActionId != 0 ? scratch.ApparentActionId : scratch.CommandId;
-        if (actionId == 0)
-            return false;
-
-        var actionManager = ActionManager.Instance();
-        if (actionManager == null)
-            return false;
-
-        total = actionManager->GetRecastTime(actionType, actionId);
-        elapsed = actionManager->GetRecastTimeElapsed(actionType, actionId);
-        return total > 0f || elapsed > 0f;
+        return actionId != 0;
     }
 
     private static bool TryResolveActionType(

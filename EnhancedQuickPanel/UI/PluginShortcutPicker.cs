@@ -1,3 +1,4 @@
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
@@ -10,6 +11,7 @@ internal static class PluginShortcutPicker
     private const float IconSize = 28f;
     private const float RowHeight = 40f;
 
+    private static readonly List<int> VisibleRows = [];
     private static string _search = string.Empty;
     private static PanelSlot? _boundSlot;
 
@@ -34,23 +36,28 @@ internal static class PluginShortcutPicker
         var style = Config.PanelUi;
         var listHeight = Math.Max(80f, ImGui.GetContentRegionAvail().Y);
         var installed = PluginShortcuts.ListPickerEntries();
-        var shown = 0;
+        VisibleRows.Clear();
+        for (var i = 0; i < installed.Count; i++)
+        {
+            if (Matches(installed[i], slot))
+                VisibleRows.Add(i);
+        }
+
         using (ImRaii.PushColor(ImGuiCol.ChildBg, style.FieldBgColor))
         using (ImRaii.PushColor(ImGuiCol.Border, style.ButtonBgColor))
         {
             if (ImGui.BeginChild("##eqpPluginList", new Vector2(-1f, listHeight), true))
             {
-                for (var i = 0; i < installed.Count; i++)
-                {
-                    var entry = installed[i];
-                    if (!Matches(entry, slot))
-                        continue;
-                    shown++;
-                    DrawRow(slot, entry, i);
-                }
-
-                if (shown == 0)
+                if (VisibleRows.Count == 0)
                     ImGui.TextDisabled(T("pluginPicker.empty"));
+                else
+                {
+                    var rowStride = RowHeight + ImGui.GetStyle().ItemSpacing.Y;
+                    ImGuiClip.ClippedDraw(VisibleRows, (index, _) =>
+                    {
+                        DrawRow(slot, installed[index], index);
+                    }, rowStride);
+                }
             }
 
             ImGui.EndChild();

@@ -12,11 +12,13 @@ internal static class SafeTextureDraw
         Vector2 max,
         uint tint)
     {
-        if (texture == null || texture.Handle == 0)
+        if (texture == null)
             return false;
 
         try
         {
+            if (texture.Handle == 0)
+                return false;
             drawList.AddImage(texture.Handle, min, max, Vector2.Zero, Vector2.One, tint);
             return true;
         }
@@ -35,11 +37,13 @@ internal static class SafeTextureDraw
         Vector2 uv1,
         uint tint)
     {
-        if (texture == null || texture.Handle == 0)
+        if (texture == null)
             return false;
 
         try
         {
+            if (texture.Handle == 0)
+                return false;
             drawList.AddImage(texture.Handle, min, max, uv0, uv1, tint);
             return true;
         }

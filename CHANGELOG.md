@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.3.0] - 2026-09-15
+
+### Fixed
+
+- The plugin picker only draws visible rows, so choosing a plugin is cheaper with many installs
+- An expanded overlay refreshes action usability less often and reuses game icon lookups
+- Slot icons no longer throw when Dalamud disposes a texture wrap
+
 ## [1.0.2.0] - 2026-09-15
 
 ### Changed
@@ -59,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.2.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...HEAD
+[1.0.3.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.2.0...v1.0.3.0
 [1.0.2.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.1.0...v1.0.2.0
 [1.0.1.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.0.0...v1.0.1.0
 [1.0.0.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v0.1.3.0...v1.0.0.0

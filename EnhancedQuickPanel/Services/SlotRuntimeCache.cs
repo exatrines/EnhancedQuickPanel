@@ -1,4 +1,5 @@
 ﻿using EnhancedQuickPanel.Models;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
@@ -18,13 +19,17 @@ internal readonly record struct SlotRuntimeState(
 // Per-frame cache of availability, cooldown, and charges keyed by command type/id.
 internal static unsafe class SlotRuntimeCache
 {
+    private const int RefreshIntervalMs = 50;
+
     private static int _cachedFrame = -1;
     private static readonly Dictionary<SlotRuntimeKey, SlotRuntimeState> Cache = new();
+    private static readonly Dictionary<SlotRuntimeKey, StickyRuntime> Sticky = new();
 
     public static void Invalidate()
     {
         _cachedFrame = -1;
         Cache.Clear();
+        Sticky.Clear();
     }
 
     public static SlotRuntimeState Get(PanelSlot slot, ResolvedSlotIcon icon)
@@ -59,7 +64,16 @@ internal static unsafe class SlotRuntimeCache
         if (Cache.TryGetValue(key, out var state))
             return state;
 
-        state = Build(type, commandId, icon);
+        var now = Environment.TickCount64;
+        if (Sticky.TryGetValue(key, out var sticky) && now - sticky.LastSetMs < RefreshIntervalMs)
+        {
+            state = sticky.WithCooldown(ReadCooldown(sticky));
+            Cache[key] = state;
+            return state;
+        }
+
+        state = Build(type, commandId, icon, now, out sticky);
+        Sticky[key] = sticky;
         Cache[key] = state;
         return state;
     }
@@ -74,11 +88,22 @@ internal static unsafe class SlotRuntimeCache
         Cache.Clear();
     }
 
+    private static SlotCooldownInfo ReadCooldown(StickyRuntime sticky)
+    {
+        if (!sticky.HasRecast)
+            return sticky.Cooldown;
+
+        return SlotCooldownResolver.ResolveFromAction(sticky.RecastType, sticky.RecastId);
+    }
+
     private static SlotRuntimeState Build(
         RaptureHotbarModule.HotbarSlotType type,
         uint commandId,
-        ResolvedSlotIcon icon)
+        ResolvedSlotIcon icon,
+        long now,
+        out StickyRuntime sticky)
     {
+        sticky = default;
         if (!GameModuleGuard.TryGetHotbar(out var hotbar, out var uiModule))
             return SlotRuntimeState.Default;
 
@@ -88,7 +113,11 @@ internal static unsafe class SlotRuntimeCache
             scratch.Set(uiModule, type, commandId);
 
             if (scratch.CommandType == RaptureHotbarModule.HotbarSlotType.Empty || scratch.CommandId == 0)
-                return new SlotRuntimeState(false, SlotCooldownInfo.None, 0, false, 0);
+            {
+                var empty = new SlotRuntimeState(false, SlotCooldownInfo.None, 0, false, 0);
+                sticky = new StickyRuntime(now, false, default, 0, empty);
+                return empty;
+            }
 
             var appearance = SlotAvailabilityResolver.ResolveAppearance(scratch, hotbar);
             var isUsable = appearance.SlotType != RaptureHotbarModule.HotbarSlotType.Empty
@@ -105,8 +134,10 @@ internal static unsafe class SlotRuntimeCache
                     appearance)
                 : 0;
             var (showCharges, charges) = SlotChargeResolver.Resolve(scratch, appearance, type);
-
-            return new SlotRuntimeState(isUsable, cooldown, quantity, showCharges, charges);
+            var state = new SlotRuntimeState(isUsable, cooldown, quantity, showCharges, charges);
+            var hasRecast = SlotCooldownResolver.TryGetRecastTarget(scratch, out var recastType, out var recastId);
+            sticky = new StickyRuntime(now, hasRecast, recastType, recastId, state);
+            return state;
         }
         catch (Exception ex)
         {
@@ -114,5 +145,21 @@ internal static unsafe class SlotRuntimeCache
             return SlotRuntimeState.Default;
         }
     }
-}
 
+    private readonly record struct StickyRuntime(
+        long LastSetMs,
+        bool HasRecast,
+        ActionType RecastType,
+        uint RecastId,
+        SlotRuntimeState State)
+    {
+        public bool IsUsable => State.IsUsable;
+        public SlotCooldownInfo Cooldown => State.Cooldown;
+        public int ItemQuantity => State.ItemQuantity;
+        public bool ShowActionCharges => State.ShowActionCharges;
+        public int ActionCharges => State.ActionCharges;
+
+        public SlotRuntimeState WithCooldown(SlotCooldownInfo cooldown) =>
+            new(IsUsable, cooldown, ItemQuantity, ShowActionCharges, ActionCharges);
+    }
+}

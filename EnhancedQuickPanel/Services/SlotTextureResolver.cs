@@ -15,6 +15,14 @@ internal static unsafe class SlotTextureResolver
         IconSubFolder.HighQuality,
     ];
 
+    private static readonly bool[] HqFirst = [true, false];
+    private static readonly bool[] NqFirst = [false, true];
+    private static readonly bool[] HiResOrder = [true, false];
+    private static readonly int[] NativeScales = [1, 2];
+    private static readonly Dictionary<GameIconKey, ISharedImmediateTexture> SharedCache = [];
+
+    public static void ClearCache() => SharedCache.Clear();
+
     public static bool TryGetSlotTexture(ResolvedSlotIcon icon, out IDalamudTextureWrap texture) =>
         TryGetSlotTexture(-1, icon, out texture);
 
@@ -43,57 +51,71 @@ internal static unsafe class SlotTextureResolver
         if (!icon.IsValid || CustomIconIds.IsCustom(icon.IconId))
             return false;
 
-        foreach (var isHighQuality in icon.IsHighQuality ? new[] { true, false } : new[] { false, true })
+        var key = new GameIconKey(icon.IconId, icon.IsHighQuality);
+        if (SharedCache.TryGetValue(key, out var cached))
         {
-            foreach (var hiRes in new[] { true, false })
+            if (TryGetSharedWrap(cached, out texture))
+                return true;
+
+            SharedCache.Remove(key);
+        }
+
+        foreach (var isHighQuality in icon.IsHighQuality ? HqFirst : NqFirst)
+        {
+            foreach (var hiRes in HiResOrder)
             {
-                if (TryGetImmediateGameIconWrap(icon.IconId, isHighQuality, hiRes, out texture))
+                if (TryGetImmediateGameIcon(icon.IconId, isHighQuality, hiRes, out var shared, out texture))
+                {
+                    SharedCache[key] = shared;
                     return true;
+                }
             }
         }
 
-        return TryGetNativeIconTexture(icon.IconId, out texture);
+        if (!TryGetNativeIconTexture(icon.IconId, out var nativeShared, out texture))
+            return false;
+
+        SharedCache[key] = nativeShared;
+        return true;
     }
 
-    private static bool TryGetImmediateGameIconWrap(
+    private static bool TryGetImmediateGameIcon(
         uint iconId,
         bool isHighQuality,
         bool hiRes,
+        out ISharedImmediateTexture shared,
         out IDalamudTextureWrap texture)
     {
+        shared = null!;
         texture = null!;
         if (CustomIconIds.IsCustom(iconId))
             return false;
 
         var lookup = new GameIconLookup(iconId, itemHq: isHighQuality, hiRes: hiRes);
 
-        if (PluginServices.Texture.TryGetFromGameIcon(lookup, out var shared))
+        if (PluginServices.Texture.TryGetFromGameIcon(lookup, out var found)
+            && TryGetSharedWrap(found, out texture))
         {
-            var sharedWrap = shared.GetWrapOrDefault();
-            if (sharedWrap != null && IsUsableWrap(sharedWrap))
-            {
-                texture = sharedWrap;
-                return true;
-            }
-
-            if (shared.TryGetWrap(out var wrap, out _) && wrap != null && IsUsableWrap(wrap))
-            {
-                texture = wrap;
-                return true;
-            }
+            shared = found;
+            return true;
         }
 
         if (PluginServices.Texture.TryGetIconPath(lookup, out var path)
-            && TryGetGameTexture(path, out texture))
+            && TryGetGameTexture(path, out shared, out texture))
         {
             return true;
         }
 
+        shared = null!;
         return false;
     }
 
-    private static bool TryGetNativeIconTexture(uint iconId, out IDalamudTextureWrap texture)
+    private static bool TryGetNativeIconTexture(
+        uint iconId,
+        out ISharedImmediateTexture shared,
+        out IDalamudTextureWrap texture)
     {
+        shared = null!;
         texture = null!;
         if (CustomIconIds.IsCustom(iconId) || !GameModuleGuard.IsClientReady)
             return false;
@@ -101,7 +123,7 @@ internal static unsafe class SlotTextureResolver
         Span<byte> buffer = stackalloc byte[256];
         foreach (var folder in IconSubFoldersToTry)
         {
-            foreach (var scale in new[] { 1, 2 })
+            foreach (var scale in NativeScales)
             {
                 buffer.Clear();
                 fixed (byte* bufferPtr = buffer)
@@ -111,7 +133,7 @@ internal static unsafe class SlotTextureResolver
                         continue;
 
                     var path = Encoding.UTF8.GetString(bufferPtr, length);
-                    if (TryGetGameTexture(path, out texture))
+                    if (TryGetGameTexture(path, out shared, out texture))
                         return true;
                 }
             }
@@ -120,22 +142,50 @@ internal static unsafe class SlotTextureResolver
         return false;
     }
 
-    private static bool TryGetGameTexture(string? path, out IDalamudTextureWrap texture)
+    private static bool TryGetGameTexture(
+        string? path,
+        out ISharedImmediateTexture shared,
+        out IDalamudTextureWrap texture)
     {
+        shared = null!;
         texture = null!;
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
-        var wrap = PluginServices.Texture.GetFromGame(path).GetWrapOrDefault();
-        if (wrap == null || !IsUsableWrap(wrap))
-            return false;
+        shared = PluginServices.Texture.GetFromGame(path);
+        return TryGetSharedWrap(shared, out texture);
+    }
 
-        texture = wrap;
+    private static bool TryGetSharedWrap(ISharedImmediateTexture shared, out IDalamudTextureWrap texture)
+    {
+        texture = null!;
+        if (TryUseWrap(shared.GetWrapOrDefault(), out texture))
+            return true;
+        return shared.TryGetWrap(out var wrap, out _) && TryUseWrap(wrap, out texture);
+    }
+
+    private static bool TryUseWrap(IDalamudTextureWrap? wrap, out IDalamudTextureWrap texture)
+    {
+        texture = null!;
+        if (!IsUsableWrap(wrap))
+            return false;
+        texture = wrap!;
         return true;
     }
 
-    private static bool IsUsableWrap(IDalamudTextureWrap? wrap) =>
-        wrap != null && wrap.Handle != 0 && wrap.Width > 1 && wrap.Height > 1;
+    private static bool IsUsableWrap(IDalamudTextureWrap? wrap)
+    {
+        if (wrap == null)
+            return false;
+        try
+        {
+            return wrap.Handle != 0 && wrap.Width > 1 && wrap.Height > 1;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
 
     private static bool TryGetNativeIconImageTexture(int slotIndex, out IDalamudTextureWrap texture)
     {
@@ -143,7 +193,8 @@ internal static unsafe class SlotTextureResolver
         if (!NativeQuickPanelUiReader.TryGetSlotIconImagePath(slotIndex, out var texturePath))
             return false;
 
-        return TryGetGameTexture(texturePath, out texture);
+        return TryGetGameTexture(texturePath, out _, out texture);
     }
-}
 
+    private readonly record struct GameIconKey(uint IconId, bool HighQuality);
+}

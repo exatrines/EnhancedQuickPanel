@@ -100,6 +100,7 @@ public sealed class Plugin : IDalamudPlugin
     private void OnTerritoryChanged(uint _)
     {
         SlotIconResolver.ClearCache();
+        SlotTextureResolver.ClearCache();
         NativeQuickPanelUiCache.Invalidate();
         SlotRuntimeCache.Invalidate();
         PluginShortcuts.Invalidate();
