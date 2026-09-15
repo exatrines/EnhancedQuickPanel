@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Reflection;
-using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services.CustomIcons;
@@ -19,7 +18,6 @@ internal enum PluginShortcutVisual
 /// <summary>Resolves, draws, and executes plugin slots. Enable/disable is PluginLifecycleToggle.</summary>
 internal static class PluginShortcuts
 {
-    private static bool iconApiUnavailable;
     private static int cachedFrame = -1;
     private static IReadOnlyList<object> cachedLocals = [];
     private static IReadOnlyList<InstalledPluginEntry> cachedInstalled = [];
@@ -27,16 +25,11 @@ internal static class PluginShortcuts
     private static object? pluginManager;
     private static PropertyInfo? installedPluginsProperty;
     private static PropertyInfo? dllFileProperty;
-    private static object? imageCache;
-    private static MethodInfo? tryGetIconMethod;
-    private static readonly object?[] tryGetIconArgs = new object?[5];
-    private static readonly Dictionary<string, ISharedImmediateTexture> iconShared = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly HashSet<string> noLocalIconFile = new(StringComparer.OrdinalIgnoreCase);
 
     internal static void Invalidate()
     {
         cachedFrame = -1;
-        noLocalIconFile.Clear();
+        PluginIconStore.Invalidate();
     }
 
     public static bool IsSelf(string name) =>
@@ -56,6 +49,9 @@ internal static class PluginShortcuts
             return PluginShortcutVisual.Missing;
         return plugin.IsLoaded ? PluginShortcutVisual.Enabled : PluginShortcutVisual.Disabled;
     }
+
+    public static bool IsIconDownloading(string internalName) =>
+        PluginIconStore.IsDownloading(internalName);
 
     public static bool IsDimmed(PluginShortcutVisual visual) =>
         visual is PluginShortcutVisual.Disabled or PluginShortcutVisual.Processing or PluginShortcutVisual.Missing;
@@ -236,143 +232,27 @@ internal static class PluginShortcuts
         object? local,
         out IDalamudTextureWrap texture)
     {
-        texture = null!;
-        if (string.IsNullOrWhiteSpace(internalName))
-            return false;
-
-        var key = IconCacheKey(internalName, workingPluginId);
-        if (TryGetCachedWrap(key, out texture))
-            return true;
-
-        local ??= FindLocal(internalName, workingPluginId);
-        if (TryCacheLocalPluginIcon(key, local, out texture))
-            return true;
-        if (PluginIconStore.TryGetTexture(internalName, out texture))
-            return true;
-        if (TryGetDalamudIcon(plugin, internalName, workingPluginId, local, out texture))
-            return true;
-        if (!PluginIconStore.NeedsDownload(internalName) || plugin == null)
-            return false;
-        PluginIconStore.RequestDownload(internalName, ReadIconUrl(plugin));
-        return false;
-    }
-
-    private static string IconCacheKey(string internalName, string workingPluginId) =>
-        HasWorkingId(workingPluginId) ? workingPluginId : internalName;
-
-    private static bool TryGetCachedWrap(string key, out IDalamudTextureWrap texture)
-    {
-        texture = null!;
-        if (!iconShared.TryGetValue(key, out var shared))
-            return false;
-        if (TryGetSharedWrap(shared, out texture))
-            return true;
-        iconShared.Remove(key);
-        return false;
-    }
-
-    private static bool TryCacheLocalPluginIcon(string key, object? local, out IDalamudTextureWrap texture)
-    {
-        texture = null!;
-        if (local == null || noLocalIconFile.Contains(key))
-            return false;
-
-        var path = ReadLocalIconPath(local);
-        if (path == null)
+        string? devIconPath = null;
+        if (plugin?.IsDev == true)
         {
-            noLocalIconFile.Add(key);
-            return false;
+            local ??= FindLocal(internalName, workingPluginId);
+            devIconPath = ReadDevIconPath(local);
         }
 
-        try
-        {
-            var shared = PluginServices.Texture.GetFromFile(path);
-            iconShared[key] = shared;
-            return TryGetSharedWrap(shared, out texture);
-        }
-        catch (Exception ex)
-        {
-            noLocalIconFile.Add(key);
-            PluginServices.Log.Debug($"[EQP] Plugin icon file load failed ({path}): {ex.Message}");
-            return false;
-        }
+        return PluginIconStore.TryGet(plugin, internalName, devIconPath, out texture);
     }
 
-    private static string? ReadLocalIconPath(object local)
+    private static string? ReadDevIconPath(object? local)
     {
+        if (local == null)
+            return null;
         dllFileProperty ??= LocalType(local).GetProperty("DllFile");
         if (dllFileProperty?.GetValue(local) is not FileInfo dllFile)
             return null;
         var directory = dllFile.DirectoryName;
         if (string.IsNullOrEmpty(directory))
             return null;
-        var path = Path.Combine(directory, "images", "icon.png");
-        return File.Exists(path) ? path : null;
-    }
-
-    private static bool TryGetSharedWrap(ISharedImmediateTexture shared, out IDalamudTextureWrap texture)
-    {
-        texture = null!;
-        if (TryUseWrap(shared.GetWrapOrDefault(), out texture))
-            return true;
-        return shared.TryGetWrap(out var wrap, out _) && TryUseWrap(wrap, out texture);
-    }
-
-    private static bool TryUseWrap(IDalamudTextureWrap? wrap, out IDalamudTextureWrap texture)
-    {
-        texture = null!;
-        if (wrap == null)
-            return false;
-        try
-        {
-            if (wrap.Handle == 0 || wrap.Width <= 1 || wrap.Height <= 1)
-                return false;
-            texture = wrap;
-            return true;
-        }
-        catch (ObjectDisposedException)
-        {
-            return false;
-        }
-    }
-
-    private static bool TryGetDalamudIcon(
-        IExposedPlugin? plugin,
-        string internalName,
-        string workingPluginId,
-        object? local,
-        out IDalamudTextureWrap texture)
-    {
-        texture = null!;
-        if (iconApiUnavailable || plugin == null)
-            return false;
-        try
-        {
-            imageCache ??= DalamudReflection.GetService("Dalamud.Interface.Internal.Windows.PluginImageCache");
-            tryGetIconMethod ??= imageCache.GetType().GetMethod("TryGetIcon", BindingFlags.Instance | BindingFlags.Public)
-                ?? throw new MissingMethodException("PluginImageCache.TryGetIcon");
-            tryGetIconArgs[0] = local ?? FindLocal(internalName, workingPluginId);
-            tryGetIconArgs[1] = plugin.Manifest;
-            tryGetIconArgs[2] = plugin.IsThirdParty;
-            tryGetIconArgs[3] = null;
-            tryGetIconArgs[4] = null;
-            tryGetIconMethod.Invoke(imageCache, tryGetIconArgs);
-            texture = tryGetIconArgs[3] as IDalamudTextureWrap ?? null!;
-            Array.Clear(tryGetIconArgs);
-            return texture != null;
-        }
-        catch (Exception ex)
-        {
-            iconApiUnavailable = true;
-            PluginServices.Log.Warning($"Plugin icons unavailable; cached and custom icons remain usable: {ex.Message}");
-            return false;
-        }
-    }
-
-    private static string? ReadIconUrl(IExposedPlugin plugin)
-    {
-        var manifest = plugin.Manifest;
-        return manifest.GetType().GetProperty("IconUrl")?.GetValue(manifest) as string;
+        return Path.Combine(directory, "images", "icon.png");
     }
 
     internal static object? FindLocal(string internalName, string workingPluginId = "")

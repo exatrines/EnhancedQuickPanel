@@ -97,7 +97,7 @@ internal static class PluginShortcutPicker
         if (!(PluginShortcuts.TryGetIcon(entry, out var icon)
             && SafeTextureDraw.TryAddImage(drawList, icon, iconMin, iconMax, uint.MaxValue)))
         {
-            var mark = "?";
+            var mark = PluginShortcuts.IsIconDownloading(plugin.InternalName) ? "..." : "?";
             var markSize = ImGui.CalcTextSize(mark);
             drawList.AddText(iconMin + (iconMax - iconMin - markSize) * 0.5f, ImGui.GetColorU32(ImGuiCol.TextDisabled), mark);
         }

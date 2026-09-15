@@ -7,6 +7,8 @@ internal static class Notifications
 {
     public static void Success(string text) => Show(text, NotificationType.Success);
 
+    public static void Info(string text) => Show(text, NotificationType.Info);
+
     public static void Warning(string text) => Show(text, NotificationType.Warning);
 
     public static void Error(string text) => Show(text, NotificationType.Error);

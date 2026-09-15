@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.5.0] - 2026-09-16
+
+### Changed
+
+- Plugin shortcut icons now follow the Dalamud installer: official plugins from Dip17, third-party plugins from IconUrl, and only development installs from the plugin folder. Each icon is downloaded once and kept locally
+
+### Added
+
+- A notification and a short overlay/picker hint while plugin icons are downloading
+
 ## [1.0.4.0] - 2026-09-15
 
 ### Fixed
@@ -73,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...HEAD
+[1.0.5.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...v1.0.5.0
 [1.0.4.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...v1.0.4.0
 [1.0.3.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.2.0...v1.0.3.0
 [1.0.2.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.1.0...v1.0.2.0

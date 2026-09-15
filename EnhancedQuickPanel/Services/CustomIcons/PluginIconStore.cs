@@ -6,15 +6,18 @@ using EnhancedQuickPanel.Services;
 
 namespace EnhancedQuickPanel.Services.CustomIcons;
 
-/// <summary>Caches plugin icons under icon/Plugins. Not shown in the custom icon picker.</summary>
+/// <summary>Resolves plugin shortcut icons: IsDev disk file, then icon/Plugins, then IconUrl/Dip17 download.</summary>
 internal static class PluginIconStore
 {
     private const string FolderName = "Plugins";
+    private const string Dip17IconUrl =
+        "https://raw.githubusercontent.com/goatcorp/PluginDistD17/main/{0}/{1}/images/icon.png";
 
     private static readonly ConcurrentDictionary<string, ISharedImmediateTexture> TextureCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, string> PathByStem = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, byte> InFlight = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, byte> Failed = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, byte> MissingFiles = new(StringComparer.OrdinalIgnoreCase);
 
     private static string _directory = string.Empty;
 
@@ -30,45 +33,102 @@ internal static class PluginIconStore
         PathByStem.Clear();
         InFlight.Clear();
         Failed.Clear();
+        MissingFiles.Clear();
     }
 
-    public static bool TryGetTexture(string internalName, out IDalamudTextureWrap texture)
+    public static void Invalidate() => MissingFiles.Clear();
+
+    public static bool IsDownloading(string internalName) =>
+        !string.IsNullOrWhiteSpace(internalName) && InFlight.ContainsKey(internalName);
+
+    public static bool TryGet(
+        IExposedPlugin? plugin,
+        string internalName,
+        string? devIconPath,
+        out IDalamudTextureWrap texture)
     {
         texture = null!;
-        if (string.IsNullOrWhiteSpace(internalName) || string.IsNullOrEmpty(_directory))
+        if (string.IsNullOrWhiteSpace(internalName))
             return false;
-        if (!TryFindFile(FileStem(internalName), out var path))
+
+        if (!string.IsNullOrEmpty(devIconPath) && TryGetFromFile(devIconPath, out texture))
+            return true;
+        if (TryGetStored(internalName, out texture))
+            return true;
+        if (plugin != null)
+            RequestDownload(internalName, ResolveIconUrl(plugin));
+        return false;
+    }
+
+    private static bool TryGetStored(string internalName, out IDalamudTextureWrap texture)
+    {
+        texture = null!;
+        if (string.IsNullOrEmpty(_directory) || !TryFindFile(FileStem(internalName), out var path))
             return false;
+        return TryGetFromFile(path, out texture);
+    }
+
+    private static bool TryGetFromFile(string path, out IDalamudTextureWrap texture)
+    {
+        texture = null!;
+        if (TextureCache.TryGetValue(path, out var cached))
+        {
+            if (TryGetSharedWrap(cached, out texture))
+                return true;
+            TextureCache.TryRemove(path, out _);
+        }
+
+        if (MissingFiles.ContainsKey(path))
+            return false;
+        if (!File.Exists(path))
+        {
+            MissingFiles.TryAdd(path, 0);
+            return false;
+        }
 
         try
         {
             var shared = TextureCache.GetOrAdd(path, static filePath => PluginServices.Texture.GetFromFile(filePath));
-            var wrap = shared.GetWrapOrDefault();
-            if (wrap == null || wrap.Handle == 0)
-                return false;
-
-            texture = wrap;
-            return true;
+            if (TryGetSharedWrap(shared, out texture))
+                return true;
+            TextureCache.TryRemove(path, out _);
+            return false;
         }
         catch (Exception ex)
         {
+            MissingFiles.TryAdd(path, 0);
             PluginLifetime.TryLogDebug($"[EQP] Plugin icon load failed ({path}): {ex.Message}");
             return false;
         }
     }
 
-    public static bool NeedsDownload(string internalName)
+    private static bool TryGetSharedWrap(ISharedImmediateTexture shared, out IDalamudTextureWrap texture)
     {
-        if (PluginLifetime.IsStopping)
-            return false;
-        if (string.IsNullOrWhiteSpace(internalName) || string.IsNullOrEmpty(_directory))
-            return false;
-        if (Failed.ContainsKey(internalName) || InFlight.ContainsKey(internalName))
-            return false;
-        return !TryFindFile(FileStem(internalName), out _);
+        texture = null!;
+        if (TryUseWrap(shared.GetWrapOrDefault(), out texture))
+            return true;
+        return shared.TryGetWrap(out var wrap, out _) && TryUseWrap(wrap, out texture);
     }
 
-    public static void RequestDownload(string internalName, string? iconUrl)
+    private static bool TryUseWrap(IDalamudTextureWrap? wrap, out IDalamudTextureWrap texture)
+    {
+        texture = null!;
+        if (wrap == null)
+            return false;
+        try
+        {
+            if (wrap.Handle == 0 || wrap.Width <= 1 || wrap.Height <= 1)
+                return false;
+            texture = wrap;
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    private static void RequestDownload(string internalName, string? iconUrl)
     {
         if (PluginLifetime.IsStopping || !NeedsDownload(internalName))
             return;
@@ -79,12 +139,42 @@ internal static class PluginIconStore
         }
         if (!InFlight.TryAdd(internalName, 0))
             return;
+        if (InFlight.Count == 1)
+            Notifications.Info(T("shortcut.iconDownloading"));
 
         var name = internalName;
         var url = iconUrl.Trim();
         var token = PluginLifetime.Token;
         _ = Task.Run(() => DownloadAsync(name, url, token));
     }
+
+    private static bool NeedsDownload(string internalName)
+    {
+        if (PluginLifetime.IsStopping)
+            return false;
+        if (string.IsNullOrWhiteSpace(internalName) || string.IsNullOrEmpty(_directory))
+            return false;
+        if (Failed.ContainsKey(internalName) || InFlight.ContainsKey(internalName))
+            return false;
+        return !TryFindFile(FileStem(internalName), out _);
+    }
+
+    private static string? ResolveIconUrl(IExposedPlugin plugin)
+    {
+        if (plugin.IsThirdParty || plugin.IsDev)
+        {
+            var iconUrl = ReadManifestString(plugin, "IconUrl");
+            return string.IsNullOrWhiteSpace(iconUrl) ? null : iconUrl.Trim();
+        }
+
+        var channel = ReadManifestString(plugin, "Dip17Channel");
+        if (string.IsNullOrWhiteSpace(channel))
+            return null;
+        return string.Format(Dip17IconUrl, channel, plugin.InternalName);
+    }
+
+    private static string? ReadManifestString(IExposedPlugin plugin, string propertyName) =>
+        plugin.Manifest.GetType().GetProperty(propertyName)?.GetValue(plugin.Manifest) as string;
 
     private static async Task DownloadAsync(string internalName, string iconUrl, CancellationToken cancellationToken)
     {

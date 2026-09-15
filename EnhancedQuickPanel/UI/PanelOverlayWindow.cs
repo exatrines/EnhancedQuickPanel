@@ -697,10 +697,15 @@ public sealed class PanelOverlayWindow : Window
             drewIcon = DalamudShortcuts.TryDrawIcon(drawList, topLeft, topLeft + size, slot, iconTint);
         if (!drewIcon && slot.Kind == PanelSlotKind.Plugin)
         {
-            const string placeholder = "?";
-            var textSize = ImGui.CalcTextSize(placeholder);
-            var textPos = topLeft + (size - textSize) * 0.5f;
-            drawList.AddText(textPos, ImGui.GetColorU32(ImGuiCol.TextDisabled), placeholder);
+            if (PluginShortcuts.IsIconDownloading(slot.PluginInternalName))
+                DrawPluginProcessingOverlay(drawList, topLeft, topLeft + size);
+            else
+            {
+                const string placeholder = "?";
+                var textSize = ImGui.CalcTextSize(placeholder);
+                var textPos = topLeft + (size - textSize) * 0.5f;
+                drawList.AddText(textPos, ImGui.GetColorU32(ImGuiCol.TextDisabled), placeholder);
+            }
         }
         if (drewIcon)
             SlotChromeDrawer.DrawIconFrame(drawList, topLeft, topLeft + size, isGrayedOut);

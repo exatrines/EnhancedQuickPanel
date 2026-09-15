@@ -9,6 +9,8 @@
   "shortcut.toggleProfileDisabled": "所属コレクション「{0}」が無効です。",
   "shortcut.toggleProfileInactive": "所属コレクション「{0}」はこのキャラクターでは有効になりません。",
   "shortcut.notLoaded": "対象プラグインは無効です。",
+  "shortcut.iconDownloading": "プラグインアイコンをダウンロードしています...",
+  "shortcut.iconDownloadingHint": "アイコンをダウンロード中",
   "shortcut.expand": "パネルを展開",
   "shortcut.collapse": "パネルを折り畳む",
   "page.defaultName": "ページ {0}",
