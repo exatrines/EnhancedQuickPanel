@@ -19,6 +19,17 @@ internal enum PluginShortcutVisual
 internal static class PluginShortcuts
 {
     private static bool iconApiUnavailable;
+    private static int cachedFrame = -1;
+    private static IReadOnlyList<object> cachedLocals = [];
+    private static IReadOnlyList<InstalledPluginEntry> cachedInstalled = [];
+    private static IReadOnlyList<InstalledPluginEntry> cachedPicker = [];
+    private static object? pluginManager;
+    private static PropertyInfo? installedPluginsProperty;
+    private static object? imageCache;
+    private static MethodInfo? tryGetIconMethod;
+
+    internal static void Invalidate() =>
+        cachedFrame = -1;
 
     public static bool IsSelf(string name) =>
         string.Equals(name, PluginServices.PluginInterface.InternalName, StringComparison.Ordinal);
@@ -176,21 +187,8 @@ internal static class PluginShortcuts
 
     internal static IReadOnlyList<InstalledPluginEntry> ListPickerEntries()
     {
-        var list = ListInstalled().ToList();
-        list.Sort(static (a, b) =>
-        {
-            var byName = string.Compare(a.Plugin.Name, b.Plugin.Name, StringComparison.OrdinalIgnoreCase);
-            if (byName != 0)
-                return byName;
-            var byInternal = string.Compare(a.Plugin.InternalName, b.Plugin.InternalName, StringComparison.Ordinal);
-            if (byInternal != 0)
-                return byInternal;
-            var byLoaded = b.Plugin.IsLoaded.CompareTo(a.Plugin.IsLoaded);
-            if (byLoaded != 0)
-                return byLoaded;
-            return string.Compare(a.WorkingId, b.WorkingId, StringComparison.OrdinalIgnoreCase);
-        });
-        return list;
+        EnsureFrameCache();
+        return cachedPicker;
     }
 
     private static void BindResolvedWorkingId(PanelSlot slot)
@@ -248,11 +246,11 @@ internal static class PluginShortcuts
             return false;
         try
         {
-            var cache = DalamudReflection.GetService("Dalamud.Interface.Internal.Windows.PluginImageCache");
-            var method = cache.GetType().GetMethod("TryGetIcon", BindingFlags.Instance | BindingFlags.Public)
+            imageCache ??= DalamudReflection.GetService("Dalamud.Interface.Internal.Windows.PluginImageCache");
+            tryGetIconMethod ??= imageCache.GetType().GetMethod("TryGetIcon", BindingFlags.Instance | BindingFlags.Public)
                 ?? throw new MissingMethodException("PluginImageCache.TryGetIcon");
             object?[] args = [FindLocal(internalName, workingPluginId), plugin.Manifest, plugin.IsThirdParty, null, null];
-            method.Invoke(cache, args);
+            tryGetIconMethod.Invoke(imageCache, args);
             texture = args[3] as IDalamudTextureWrap ?? null!;
             return texture != null;
         }
@@ -272,9 +270,10 @@ internal static class PluginShortcuts
 
     internal static object? FindLocal(string internalName, string workingPluginId = "")
     {
+        EnsureFrameCache();
         if (HasWorkingId(workingPluginId))
         {
-            foreach (var local in EnumerateLocals())
+            foreach (var local in cachedLocals)
             {
                 if (SameWorkingId(ReadWorkingId(local), workingPluginId))
                     return local;
@@ -288,7 +287,7 @@ internal static class PluginShortcuts
 
         object? first = null;
         object? loaded = null;
-        foreach (var local in EnumerateLocals())
+        foreach (var local in cachedLocals)
         {
             if (!string.Equals(ReadLocalInternalName(local), internalName, StringComparison.Ordinal))
                 continue;
@@ -306,7 +305,8 @@ internal static class PluginShortcuts
         var id = ReadWorkingId(local);
         if (string.IsNullOrEmpty(name))
             return false;
-        foreach (var other in EnumerateLocals())
+        EnsureFrameCache();
+        foreach (var other in cachedLocals)
         {
             if (!string.Equals(ReadLocalInternalName(other), name, StringComparison.Ordinal))
                 continue;
@@ -321,8 +321,44 @@ internal static class PluginShortcuts
 
     private static IReadOnlyList<InstalledPluginEntry> ListInstalled()
     {
+        EnsureFrameCache();
+        return cachedInstalled;
+    }
+
+    private static void EnsureFrameCache()
+    {
+        var frame = ImGui.GetFrameCount();
+        if (cachedFrame == frame)
+            return;
+
+        var locals = CollectLocals();
+        var installed = PairInstalled(locals);
+        cachedLocals = locals;
+        cachedInstalled = installed;
+        cachedPicker = SortPicker(installed);
+        cachedFrame = frame;
+    }
+
+    private static IReadOnlyList<object> CollectLocals()
+    {
+        pluginManager ??= DalamudReflection.GetPluginManager();
+        installedPluginsProperty ??= pluginManager.GetType().GetProperty("InstalledPlugins");
+        if (installedPluginsProperty?.GetValue(pluginManager) is not IEnumerable installed)
+            return [];
+
+        var locals = new List<object>();
+        foreach (var plugin in installed)
+        {
+            if (plugin != null)
+                locals.Add(plugin);
+        }
+
+        return locals;
+    }
+
+    private static IReadOnlyList<InstalledPluginEntry> PairInstalled(IReadOnlyList<object> locals)
+    {
         var exposed = PluginServices.PluginInterface.InstalledPlugins.ToList();
-        var locals = EnumerateLocals().ToList();
         var used = new bool[locals.Count];
         var localIndexByExposed = new int[exposed.Count];
         Array.Fill(localIndexByExposed, -1);
@@ -365,6 +401,25 @@ internal static class PluginShortcuts
         }
 
         return result;
+    }
+
+    private static IReadOnlyList<InstalledPluginEntry> SortPicker(IReadOnlyList<InstalledPluginEntry> installed)
+    {
+        var list = installed.ToList();
+        list.Sort(static (a, b) =>
+        {
+            var byName = string.Compare(a.Plugin.Name, b.Plugin.Name, StringComparison.OrdinalIgnoreCase);
+            if (byName != 0)
+                return byName;
+            var byInternal = string.Compare(a.Plugin.InternalName, b.Plugin.InternalName, StringComparison.Ordinal);
+            if (byInternal != 0)
+                return byInternal;
+            var byLoaded = b.Plugin.IsLoaded.CompareTo(a.Plugin.IsLoaded);
+            if (byLoaded != 0)
+                return byLoaded;
+            return string.Compare(a.WorkingId, b.WorkingId, StringComparison.OrdinalIgnoreCase);
+        });
+        return list;
     }
 
     internal static Type LocalType(object local)
@@ -415,18 +470,6 @@ internal static class PluginShortcuts
         }
 
         return loaded ?? first;
-    }
-
-    private static IEnumerable<object> EnumerateLocals()
-    {
-        var manager = DalamudReflection.GetPluginManager();
-        if (manager.GetType().GetProperty("InstalledPlugins")?.GetValue(manager) is not IEnumerable installed)
-            yield break;
-        foreach (var plugin in installed)
-        {
-            if (plugin != null)
-                yield return plugin;
-        }
     }
 
     private static string ReadWorkingId(object local)

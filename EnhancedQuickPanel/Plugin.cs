@@ -102,6 +102,7 @@ public sealed class Plugin : IDalamudPlugin
         SlotIconResolver.ClearCache();
         NativeQuickPanelUiCache.Invalidate();
         SlotRuntimeCache.Invalidate();
+        PluginShortcuts.Invalidate();
     }
 
     public void Dispose()
