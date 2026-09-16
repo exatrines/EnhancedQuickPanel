@@ -12,16 +12,6 @@ internal static unsafe class MacroIconResolver
     private static bool IsValidMiconRowId(uint id) =>
         id is > 0 and < 0xF000_0000;
 
-    internal static bool TryResolveFromMacro(byte macroSet, byte macroIndex, out uint iconId)
-    {
-        iconId = 0;
-        var macroModule = RaptureMacroModule.Instance();
-        if (macroModule == null)
-            return false;
-
-        return TryResolveFromMacro(macroModule->GetMacro(macroSet, macroIndex), out iconId);
-    }
-
     internal static bool TryResolveFromMacro(RaptureMacroModule.Macro* macro, out uint iconId)
     {
         iconId = 0;

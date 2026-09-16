@@ -296,6 +296,7 @@ internal static class SlotEditor
     {
         _previewMacroSet = slot.MacroSet;
         _previewMacroIndex = slot.MacroIndex;
+        SlotIconResolver.InvalidateMacro(slot.MacroSet, slot.MacroIndex);
         var content = MacroContentReader.Read(slot);
         _previewAvailable = content.IsAvailable;
         _previewStatusMessage = content.StatusMessage;

@@ -1,5 +1,4 @@
-﻿using EnhancedQuickPanel.Models;
-using FFXIVClientStructs.FFXIV.Client.Game;
+﻿using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
@@ -8,21 +7,6 @@ namespace EnhancedQuickPanel.Services;
 internal static unsafe class SlotCooldownResolver
 {
     private const byte InvalidActionTypeByte = unchecked((byte)0xFFFFFFFF);
-
-    public static SlotCooldownInfo Resolve(PanelSlot slot)
-    {
-        if (slot.Kind != PanelSlotKind.Action || slot.CommandId == 0)
-            return SlotCooldownInfo.None;
-
-        var type = (RaptureHotbarModule.HotbarSlotType)slot.CommandType;
-        if (type is RaptureHotbarModule.HotbarSlotType.Empty
-            or RaptureHotbarModule.HotbarSlotType.Macro)
-        {
-            return SlotCooldownInfo.None;
-        }
-
-        return Resolve(type, slot.CommandId);
-    }
 
     public static SlotCooldownInfo ResolveScratch(RaptureHotbarModule.HotbarSlot scratch)
     {
@@ -43,28 +27,6 @@ internal static unsafe class SlotCooldownResolver
         catch (Exception ex)
         {
             PluginServices.Log.Debug($"[EQP] Cooldown read failed (scratch): {ex.Message}");
-            return SlotCooldownInfo.None;
-        }
-    }
-
-    public static SlotCooldownInfo Resolve(RaptureHotbarModule.HotbarSlotType type, uint commandId)
-    {
-        if (!GameModuleGuard.TryGetHotbar(out var hotbar, out var uiModule))
-            return SlotCooldownInfo.None;
-
-        try
-        {
-            var scratch = hotbar->ScratchSlot;
-            scratch.Set(uiModule, type, commandId);
-
-            if (scratch.CommandType == RaptureHotbarModule.HotbarSlotType.Empty || scratch.CommandId == 0)
-                return SlotCooldownInfo.None;
-
-            return ResolveScratch(scratch);
-        }
-        catch (Exception ex)
-        {
-            PluginServices.Log.Debug($"[EQP] Cooldown read failed ({type} #{commandId}): {ex.Message}");
             return SlotCooldownInfo.None;
         }
     }

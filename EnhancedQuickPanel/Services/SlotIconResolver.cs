@@ -1,6 +1,7 @@
 ﻿using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services.CustomIcons;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
 using GameAction = Lumina.Excel.Sheets.Action;
@@ -25,8 +26,16 @@ internal static unsafe class SlotIconResolver
     private const uint MaxLoadableIconId = ResolvedSlotIcon.MaxResolvableIconId;
 
     private static readonly Dictionary<(byte Type, uint CommandId), ResolvedSlotIcon> HotbarIconCache = [];
+    private static readonly Dictionary<(byte Set, byte Index), ResolvedSlotIcon> MacroIconCache = [];
 
-    public static void ClearCache() => HotbarIconCache.Clear();
+    public static void ClearCache()
+    {
+        HotbarIconCache.Clear();
+        MacroIconCache.Clear();
+    }
+
+    public static void InvalidateMacro(byte macroSet, byte macroIndex) =>
+        MacroIconCache.Remove((macroSet, macroIndex));
 
     public static string ResolveTooltip(PanelSlot slot) =>
         SlotTooltipResolver.Resolve(slot);
@@ -42,39 +51,31 @@ internal static unsafe class SlotIconResolver
         return slot.Kind switch
         {
             PanelSlotKind.Action => ResolveHotbarIcon((RaptureHotbarModule.HotbarSlotType)slot.CommandType, slot.CommandId),
-            PanelSlotKind.Macro => ResolveMacroIcon(slot),
+            PanelSlotKind.Macro => ResolveMacroIconFromIndices(slot.MacroSet, slot.MacroIndex),
             PanelSlotKind.TextCommand => ResolvedSlotIcon.Empty,
             _ => ResolvedSlotIcon.Empty,
         };
     }
 
-    private static uint EncodeMacroCommandId(byte macroSet, byte macroIndex) =>
-        MacroSlotResolver.EncodeHotbarCommandId(macroSet, macroIndex);
-
     private static ResolvedSlotIcon ResolveHotbarIcon(RaptureHotbarModule.HotbarSlotType type, uint commandId)
     {
         if (type == RaptureHotbarModule.HotbarSlotType.Empty || commandId == 0)
             return ResolvedSlotIcon.Empty;
-
-        var cacheKey = ((byte)type, commandId);
-        if (ShouldCacheIcon(type) && HotbarIconCache.TryGetValue(cacheKey, out var cached))
-            return cached;
-
-        var icon = ResolveHotbarIconUncached(type, commandId);
-        if (icon.IsValid && ShouldCacheIcon(type))
-            HotbarIconCache[cacheKey] = icon;
-
-        return icon;
-    }
-
-    private static bool ShouldCacheIcon(RaptureHotbarModule.HotbarSlotType type) =>
-        type != RaptureHotbarModule.HotbarSlotType.Macro;
-
-    private static ResolvedSlotIcon ResolveHotbarIconUncached(RaptureHotbarModule.HotbarSlotType type, uint commandId)
-    {
         if (type == RaptureHotbarModule.HotbarSlotType.Macro)
             return ResolveMacroIconFromCommandId(commandId);
 
+        var cacheKey = ((byte)type, commandId);
+        if (HotbarIconCache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        var icon = ResolveHotbarIconUncached(type, commandId);
+        if (icon.IsValid)
+            HotbarIconCache[cacheKey] = icon;
+        return icon;
+    }
+
+    private static ResolvedSlotIcon ResolveHotbarIconUncached(RaptureHotbarModule.HotbarSlotType type, uint commandId)
+    {
         if (InventorySlotHelper.IsItemSlotType(type))
         {
             var inventoryIcon = type is RaptureHotbarModule.HotbarSlotType.InventoryItem
@@ -183,9 +184,6 @@ internal static unsafe class SlotIconResolver
         return IsLoadableIcon(eventIconId) ? new ResolvedSlotIcon(eventIconId, false) : ResolvedSlotIcon.Empty;
     }
 
-    private static ResolvedSlotIcon ResolveMacroIcon(PanelSlot slot) =>
-        ResolveMacroIconFromIndices(slot.MacroSet, slot.MacroIndex);
-
     private static ResolvedSlotIcon ResolveMacroIconFromCommandId(uint commandId)
     {
         if (commandId == 0)
@@ -199,62 +197,73 @@ internal static unsafe class SlotIconResolver
 
     private static ResolvedSlotIcon ResolveMacroIconFromIndices(byte macroSet, byte macroIndex)
     {
+        var key = (macroSet, macroIndex);
+        if (MacroIconCache.TryGetValue(key, out var cached))
+            return cached;
+
         if (!GameModuleGuard.TryGetMacroModule(out var macroModule) || !GameModuleGuard.TryGetHotbar(out var hotbar, out var uiModule))
             return ResolvedSlotIcon.Empty;
 
         try
         {
-            var macro = macroModule->GetMacro(macroSet, macroIndex);
-
-            if (MacroIconResolver.TryResolveFromMacro(macro, out var miconIconId)
-                && IsLoadableIcon(miconIconId))
-            {
-                return new ResolvedSlotIcon(miconIconId, false);
-            }
-
-            var macroCommandId = EncodeMacroCommandId(macroSet, macroIndex);
-
-            RaptureHotbarModule.HotbarSlotType type = default;
-            uint rowId = 0;
-            uint itemId = 0;
-            if (macroModule->TryResolveMacroIcon(uiModule, &type, &rowId, macroSet, macroIndex, &itemId))
-            {
-                if (IsLoadableIcon(itemId))
-                    return new ResolvedSlotIcon(itemId, InventorySlotHelper.IsHighQuality(type, itemId));
-
-                var luminaIcon = LuminaIconFallback(type, rowId);
-                if (luminaIcon.IsValid)
-                    return luminaIcon;
-
-                if (type != RaptureHotbarModule.HotbarSlotType.Empty && rowId != 0)
-                {
-                    var scratch = hotbar->ScratchSlot;
-                    scratch.Set(uiModule, type, rowId);
-                    scratch.LoadIconId();
-                    var resolvedIcon = scratch.GetIconIdForSlot(type, rowId);
-                    if (IsLoadableIcon((uint)resolvedIcon))
-                        return new ResolvedSlotIcon((uint)resolvedIcon, InventorySlotHelper.IsHighQuality(type, rowId));
-                }
-            }
-
-            var storedIcon = ResolveStoredMacroIcon(macro);
-            if (storedIcon.IsValid)
-                return storedIcon;
-
-            var fallbackScratch = hotbar->ScratchSlot;
-            fallbackScratch.Set(uiModule, RaptureHotbarModule.HotbarSlotType.Macro, macroCommandId);
-            fallbackScratch.LoadIconId();
-
-            var icon = fallbackScratch.GetIconIdForSlot(RaptureHotbarModule.HotbarSlotType.Macro, macroCommandId);
-            return IsLoadableIcon((uint)icon)
-                ? new ResolvedSlotIcon((uint)icon, false)
-                : ResolvedSlotIcon.Empty;
+            var icon = ReadMacroIcon(macroModule, hotbar, uiModule, macroSet, macroIndex);
+            MacroIconCache[key] = icon;
+            return icon;
         }
         catch (Exception ex)
         {
             PluginServices.Log.Debug($"[EQP] Macro icon read failed (set={macroSet} index={macroIndex}): {ex.Message}");
             return ResolvedSlotIcon.Empty;
         }
+    }
+
+    private static ResolvedSlotIcon ReadMacroIcon(
+        RaptureMacroModule* macroModule,
+        RaptureHotbarModule* hotbar,
+        UIModule* uiModule,
+        byte macroSet,
+        byte macroIndex)
+    {
+        var macro = macroModule->GetMacro(macroSet, macroIndex);
+
+        if (MacroIconResolver.TryResolveFromMacro(macro, out var miconIconId) && IsLoadableIcon(miconIconId))
+            return new ResolvedSlotIcon(miconIconId, false);
+
+        RaptureHotbarModule.HotbarSlotType type = default;
+        uint rowId = 0;
+        uint itemId = 0;
+        if (macroModule->TryResolveMacroIcon(uiModule, &type, &rowId, macroSet, macroIndex, &itemId))
+        {
+            if (IsLoadableIcon(itemId))
+                return new ResolvedSlotIcon(itemId, InventorySlotHelper.IsHighQuality(type, itemId));
+
+            var luminaIcon = LuminaIconFallback(type, rowId);
+            if (luminaIcon.IsValid)
+                return luminaIcon;
+
+            if (type != RaptureHotbarModule.HotbarSlotType.Empty && rowId != 0)
+            {
+                var scratch = hotbar->ScratchSlot;
+                scratch.Set(uiModule, type, rowId);
+                scratch.LoadIconId();
+                var resolvedIcon = scratch.GetIconIdForSlot(type, rowId);
+                if (IsLoadableIcon((uint)resolvedIcon))
+                    return new ResolvedSlotIcon((uint)resolvedIcon, InventorySlotHelper.IsHighQuality(type, rowId));
+            }
+        }
+
+        var storedIcon = ResolveStoredMacroIcon(macro);
+        if (storedIcon.IsValid)
+            return storedIcon;
+
+        var macroCommandId = MacroSlotResolver.EncodeHotbarCommandId(macroSet, macroIndex);
+        var fallbackScratch = hotbar->ScratchSlot;
+        fallbackScratch.Set(uiModule, RaptureHotbarModule.HotbarSlotType.Macro, macroCommandId);
+        fallbackScratch.LoadIconId();
+        var icon = fallbackScratch.GetIconIdForSlot(RaptureHotbarModule.HotbarSlotType.Macro, macroCommandId);
+        return IsLoadableIcon((uint)icon)
+            ? new ResolvedSlotIcon((uint)icon, false)
+            : ResolvedSlotIcon.Empty;
     }
 
     private static ResolvedSlotIcon ResolveStoredMacroIcon(RaptureMacroModule.Macro* macro)
@@ -268,21 +277,26 @@ internal static unsafe class SlotIconResolver
         if (macro->MacroIconRowId == 0)
             return ResolvedSlotIcon.Empty;
 
-        foreach (var rowId in new[] { macro->MacroIconRowId, macro->MacroIconRowId - 1 })
-        {
-            if (rowId == 0)
-                continue;
-
-            var markerIcon = LuminaIconFallback(RaptureHotbarModule.HotbarSlotType.Marker, rowId);
-            if (markerIcon.IsValid)
-                return markerIcon;
-
-            var fieldMarkerIcon = LuminaIconFallback(RaptureHotbarModule.HotbarSlotType.FieldMarker, rowId);
-            if (fieldMarkerIcon.IsValid)
-                return fieldMarkerIcon;
-        }
+        if (TryResolveStoredMacroRow(macro->MacroIconRowId, out var stored))
+            return stored;
+        if (macro->MacroIconRowId > 1 && TryResolveStoredMacroRow(macro->MacroIconRowId - 1, out stored))
+            return stored;
 
         return ResolvedSlotIcon.Empty;
+    }
+
+    private static bool TryResolveStoredMacroRow(uint rowId, out ResolvedSlotIcon icon)
+    {
+        icon = ResolvedSlotIcon.Empty;
+        if (rowId == 0)
+            return false;
+
+        icon = LuminaIconFallback(RaptureHotbarModule.HotbarSlotType.Marker, rowId);
+        if (icon.IsValid)
+            return true;
+
+        icon = LuminaIconFallback(RaptureHotbarModule.HotbarSlotType.FieldMarker, rowId);
+        return icon.IsValid;
     }
 
     private static RaptureHotbarModule.HotbarSlotType GetAppearanceType(

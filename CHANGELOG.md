@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.6.0] - 2026-09-16
+
+### Fixed
+
+- Macro slot icons are resolved once and reused, so an overlay full of macros is cheaper to draw. Editing the slot or changing zones refreshes them
+
 ## [1.0.5.0] - 2026-09-16
 
 ### Changed
@@ -83,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.6.0...HEAD
+[1.0.6.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...v1.0.6.0
 [1.0.5.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...v1.0.5.0
 [1.0.4.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...v1.0.4.0
 [1.0.3.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.2.0...v1.0.3.0

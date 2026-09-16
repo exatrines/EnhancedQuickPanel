@@ -91,6 +91,7 @@ internal static unsafe class MacroSlotResolver
         slot.MacroIndex = macroIndex;
         slot.CommandId = EncodeQuickPanelMacroCommandId(macroSet, macroIndex);
         slot.CommandType = 0;
+        SlotIconResolver.InvalidateMacro(macroSet, macroIndex);
     }
 
     public static bool TryResolveMacroDragPayload(
