@@ -8,10 +8,10 @@
   "ImageUrls": [
     "https://raw.githubusercontent.com/exatrines/EnhancedQuickPanel/master/docs/screenshots/en/overlay.png"
   ],
-  "AssemblyVersion": "1.0.6.0",
+  "AssemblyVersion": "1.0.7.0",
   "RepoUrl": "https://github.com/exatrines/EnhancedQuickPanel",
-  "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.6.0/EnhancedQuickPanel.zip",
-  "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.6.0/EnhancedQuickPanel.zip",
+  "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.7.0/EnhancedQuickPanel.zip",
+  "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.7.0/EnhancedQuickPanel.zip",
   "ApplicableVersion": "any",
   "DalamudApiLevel": "15",
   "Tags": [

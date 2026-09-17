@@ -42,6 +42,12 @@ public sealed class Plugin : IDalamudPlugin
 
         MirageUi.ConfigureTheme(() => MirageColorSettings.CreateDefault());
         MirageUi.Init(pluginInterface, PluginServices.Texture, PluginServices.Log);
+        MirageUi.ConfigurePluginInfo(info =>
+        {
+            info.Message = "Join our Discord for updates and support!";
+            info.DiscordUrl = "https://discord.gg/gRfxXNZWMs";
+            info.SupportUrl = "https://exatrines.github.io/support/";
+        });
 
         CustomIconRegistry.Initialize();
         PluginIconStore.Initialize();

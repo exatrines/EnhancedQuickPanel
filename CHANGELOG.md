@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.7.0] - 2026-09-17
+
+### Changed
+
+- The settings window uses the latest MirageUI. Open the plugin page from the title bar or the sidebar icon (Discord and Support). The left-column footer links are gone
+- Settings opens on the Settings tab when nothing is selected
+
 ## [1.0.6.0] - 2026-09-16
 
 ### Fixed
@@ -89,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.6.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.7.0...HEAD
+[1.0.7.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.6.0...v1.0.7.0
 [1.0.6.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...v1.0.6.0
 [1.0.5.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...v1.0.5.0
 [1.0.4.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.3.0...v1.0.4.0

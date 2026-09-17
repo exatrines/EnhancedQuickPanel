@@ -15,7 +15,7 @@ public sealed class ConfigurationWindow : Window
         "Data",
         "plugin-icon.png");
 
-    private string _selectedTabId = string.Empty;
+    private string _selectedTabId = "settings";
     private ImRaii.ColorDisposable? _themeScope;
 
     public ConfigurationWindow()
@@ -54,7 +54,7 @@ public sealed class ConfigurationWindow : Window
     private MirageTwoColumnState CreateTwoColumnState() => new()
     {
         ShowSidebarHeader = true,
-        ShowSidebarFooter = true,
+        ShowSidebarFooter = false,
         SidebarHeader = new MirageTwoColumnSidebarHeader
         {
             ImagePath = IconPath,
@@ -63,18 +63,13 @@ public sealed class ConfigurationWindow : Window
             Title = PluginServices.PluginInterface.Manifest.Name,
             Subtitle = $"v{PluginServices.PluginInterface.Manifest.AssemblyVersion} by {PluginServices.PluginInterface.Manifest.Author}",
         },
-        SidebarFooterLinks =
-        [
-            new MirageTwoColumnSidebarFooterLink { Label = "GitHub", Url = "https://github.com/exatrines/EnhancedQuickPanel" },
-            new MirageTwoColumnSidebarFooterLink { Label = "OFUSE", Url = "https://ofuse.me/exatrines" },
-            new MirageTwoColumnSidebarFooterLink { Label = "Ko-fi", Url = "https://ko-fi.com/exatrines" },
-        ],
         Entries =
         [
             new MirageTwoColumnEntry { Id = "settings", Label = T("config.tab.settings") },
             new MirageTwoColumnEntry { Id = "style", Label = T("config.tab.style") },
         ],
-        SelectedId = _selectedTabId,
+        SelectedId = string.IsNullOrEmpty(_selectedTabId) ? "settings" : _selectedTabId,
+        AllowDeselect = false,
         OnSelectionChanged = id => _selectedTabId = id,
     };
 
@@ -82,11 +77,11 @@ public sealed class ConfigurationWindow : Window
     {
         switch (_selectedTabId)
         {
-            case "settings":
-                DrawSettingsPage();
-                break;
             case "style":
                 DrawStylePage();
+                break;
+            default:
+                DrawSettingsPage();
                 break;
         }
     }
@@ -236,11 +231,11 @@ public sealed class ConfigurationWindow : Window
         MirageUi.Text(T("config.style.importExportDescription"), MirageUi.Color.Secondary);
 
         var buttonWidth = CalcTwoButtonWidth(T("common.export"), T("common.import"));
-        if (ImGui.Button(T("common.export"), new Vector2(buttonWidth, 0f)))
+        if (MirageUi.PrimaryButton(T("common.export"), width: buttonWidth))
             PanelStyleImportExport.ExportToClipboard();
 
         ImGui.SameLine();
-        if (ImGui.Button(T("common.import"), new Vector2(buttonWidth, 0f)))
+        if (MirageUi.SecondaryButton(T("common.import"), width: buttonWidth))
             PanelStyleImportExport.ImportFromClipboard();
 
         DrawStylePresetRow();
@@ -276,7 +271,7 @@ public sealed class ConfigurationWindow : Window
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(applyLabel))
+        if (MirageUi.PrimaryButton(applyLabel))
             PanelStylePresets.ApplyFromUi(_selectedStylePresetIndex);
     }
 
@@ -332,14 +327,14 @@ public sealed class ConfigurationWindow : Window
         MirageUi.Text(T("config.style.windowNormal"), MirageUi.Color.Secondary);
 
         var windowBg = Config.WindowBgColor;
-        if (ImGui.ColorEdit4(T("config.style.windowBg"), ref windowBg, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.windowBg"), ref windowBg))
         {
             Config.SetWindowBgColor(windowBg);
             changed = true;
         }
 
         var windowBorder = Config.WindowBorderColor;
-        if (ImGui.ColorEdit4(T("config.style.windowBorder"), ref windowBorder, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.windowBorder"), ref windowBorder))
         {
             Config.SetWindowBorderColor(windowBorder);
             changed = true;
@@ -347,10 +342,11 @@ public sealed class ConfigurationWindow : Window
 
         var windowBorderThickness = Config.WindowBorderThickness;
         if (MirageUi.SliderFloat(
-                $"{T("config.style.borderThickness")}##eqpWindowBorder",
+                T("config.style.borderThickness"),
                 ref windowBorderThickness,
                 0f,
-                8f))
+                8f,
+                id: "eqpWindowBorder"))
         {
             Config.WindowBorderThickness = windowBorderThickness;
             changed = true;
@@ -359,20 +355,14 @@ public sealed class ConfigurationWindow : Window
         MirageUi.Text(T("config.style.windowEditMode"), MirageUi.Color.Secondary);
 
         var editModeWindowBg = Config.EditModeWindowBgColor;
-        if (ImGui.ColorEdit4(
-                T("config.style.editModeBg"),
-                ref editModeWindowBg,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.editModeBg"), ref editModeWindowBg))
         {
             Config.SetEditModeWindowBgColor(editModeWindowBg);
             changed = true;
         }
 
         var editModeWindowBorder = Config.EditModeWindowBorderColor;
-        if (ImGui.ColorEdit4(
-                T("config.style.editModeBorder"),
-                ref editModeWindowBorder,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.editModeBorder"), ref editModeWindowBorder))
         {
             Config.SetEditModeWindowBorderColor(editModeWindowBorder);
             changed = true;
@@ -380,10 +370,11 @@ public sealed class ConfigurationWindow : Window
 
         var editModeWindowBorderThickness = Config.EditModeWindowBorderThickness;
         if (MirageUi.SliderFloat(
-                $"{T("config.style.editBorderThickness")}##eqpEditModeWindowBorder",
+                T("config.style.editBorderThickness"),
                 ref editModeWindowBorderThickness,
                 0f,
-                8f))
+                8f,
+                id: "eqpEditModeWindowBorder"))
         {
             Config.EditModeWindowBorderThickness = editModeWindowBorderThickness;
             changed = true;
@@ -399,17 +390,14 @@ public sealed class ConfigurationWindow : Window
         var changed = false;
 
         var slotBg = Config.SlotBgColor;
-        if (ImGui.ColorEdit4(T("config.style.slotBg"), ref slotBg, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.slotBg"), ref slotBg))
         {
             Config.SetSlotBgColor(slotBg);
             changed = true;
         }
 
         var slotDropTargetBg = Config.SlotDropTargetColor;
-        if (ImGui.ColorEdit4(
-                T("config.style.dropTargetHighlight"),
-                ref slotDropTargetBg,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.dropTargetHighlight"), ref slotDropTargetBg))
         {
             Config.SlotDropTargetRed = slotDropTargetBg.X;
             Config.SlotDropTargetGreen = slotDropTargetBg.Y;
@@ -430,14 +418,14 @@ public sealed class ConfigurationWindow : Window
         var changed = false;
 
         var tooltipBg = Config.TooltipBgColor;
-        if (ImGui.ColorEdit4(T("config.style.tooltipBg"), ref tooltipBg, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.tooltipBg"), ref tooltipBg))
         {
             Config.SetTooltipBgColor(tooltipBg);
             changed = true;
         }
 
         var tooltipText = Config.TooltipTextColor;
-        if (ImGui.ColorEdit4(T("config.style.tooltipText"), ref tooltipText, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.tooltipText"), ref tooltipText))
         {
             Config.SetTooltipTextColor(tooltipText);
             changed = true;
@@ -472,51 +460,45 @@ public sealed class ConfigurationWindow : Window
         var changed = false;
 
         var padding = style.Padding;
-        if (MirageUi.SliderFloat($"{T("config.contextMenu.padding")}##eqpContextMenuPadding", ref padding, 0f, 16f))
+        if (MirageUi.SliderFloat(T("config.contextMenu.padding"), ref padding, 0f, 16f, id: "eqpContextMenuPadding"))
         {
             style.Padding = padding;
             changed = true;
         }
 
         var bgColor = style.BgColor;
-        if (ImGui.ColorEdit4($"{T("config.contextMenu.bg")}##eqpContextMenuBg", ref bgColor, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.contextMenu.bg"), ref bgColor, id: "eqpContextMenuBg"))
         {
             style.SetBgColor(bgColor);
             changed = true;
         }
 
         var textColor = style.TextColor;
-        if (ImGui.ColorEdit4($"{T("config.contextMenu.text")}##eqpContextMenuText", ref textColor, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.contextMenu.text"), ref textColor, id: "eqpContextMenuText"))
         {
             style.SetTextColor(textColor);
             changed = true;
         }
 
         var textHoverColor = style.TextHoverColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.contextMenu.textHover")}##eqpContextMenuTextHover",
-                ref textHoverColor,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.contextMenu.textHover"), ref textHoverColor, id: "eqpContextMenuTextHover"))
         {
             style.SetTextHoverColor(textHoverColor);
             changed = true;
         }
 
         var buttonBgColor = style.ButtonBgColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.contextMenu.buttonBg")}##eqpContextMenuButtonBg",
-                ref buttonBgColor,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.contextMenu.buttonBg"), ref buttonBgColor, id: "eqpContextMenuButtonBg"))
         {
             style.SetButtonBgColor(buttonBgColor);
             changed = true;
         }
 
         var buttonBgHoverColor = style.ButtonBgHoverColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.contextMenu.buttonBgHover")}##eqpContextMenuButtonBgHover",
+        if (MirageUi.ColorEdit4(
+                T("config.contextMenu.buttonBgHover"),
                 ref buttonBgHoverColor,
-                ImGuiColorEditFlags.AlphaBar))
+                id: "eqpContextMenuButtonBgHover"))
         {
             style.SetButtonBgHoverColor(buttonBgHoverColor);
             changed = true;
@@ -534,37 +516,31 @@ public sealed class ConfigurationWindow : Window
         MirageUi.Text(T("config.style.panelUiDescription"), MirageUi.Color.Secondary);
 
         var textColor = style.TextColor;
-        if (ImGui.ColorEdit4($"{T("config.style.panelUiText")}##eqpPanelUiText", ref textColor, ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.panelUiText"), ref textColor, id: "eqpPanelUiText"))
         {
             style.SetTextColor(textColor);
             changed = true;
         }
 
         var textHoverColor = style.TextHoverColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.style.panelUiTextHover")}##eqpPanelUiTextHover",
-                ref textHoverColor,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.panelUiTextHover"), ref textHoverColor, id: "eqpPanelUiTextHover"))
         {
             style.SetTextHoverColor(textHoverColor);
             changed = true;
         }
 
         var buttonBgColor = style.ButtonBgColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.style.panelUiButtonBg")}##eqpPanelUiButtonBg",
-                ref buttonBgColor,
-                ImGuiColorEditFlags.AlphaBar))
+        if (MirageUi.ColorEdit4(T("config.style.panelUiButtonBg"), ref buttonBgColor, id: "eqpPanelUiButtonBg"))
         {
             style.SetButtonBgColor(buttonBgColor);
             changed = true;
         }
 
         var buttonBgHoverColor = style.ButtonBgHoverColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.style.panelUiButtonBgHover")}##eqpPanelUiButtonBgHover",
+        if (MirageUi.ColorEdit4(
+                T("config.style.panelUiButtonBgHover"),
                 ref buttonBgHoverColor,
-                ImGuiColorEditFlags.AlphaBar))
+                id: "eqpPanelUiButtonBgHover"))
         {
             style.SetButtonBgHoverColor(buttonBgHoverColor);
             changed = true;
@@ -597,17 +573,18 @@ public sealed class ConfigurationWindow : Window
         MirageUi.Text(title, MirageUi.Color.Secondary);
 
         var textSize = style.TextSizeScale;
-        if (MirageUi.SliderFloat($"{T("config.style.overlayTextSize")}##{id}TextSize", ref textSize, 0.5f, 2f))
+        if (MirageUi.SliderFloat(T("config.style.overlayTextSize"), ref textSize, 0.5f, 2f, id: $"{id}TextSize"))
         {
             style.TextSizeScale = textSize;
             changed = true;
         }
 
         var textColor = style.TextColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.style.overlayTextColor")}##{id}TextColor",
+        if (MirageUi.ColorEdit4(
+                T("config.style.overlayTextColor"),
                 ref textColor,
-                OverlayColorPickerFlags))
+                OverlayColorPickerFlags,
+                id: $"{id}TextColor"))
         {
             style.SetTextColor(textColor);
             changed = true;
@@ -615,20 +592,22 @@ public sealed class ConfigurationWindow : Window
 
         var edgeThickness = style.EdgeThickness;
         if (MirageUi.SliderFloat(
-                $"{T("config.style.overlayEdgeThickness")}##{id}EdgeThickness",
+                T("config.style.overlayEdgeThickness"),
                 ref edgeThickness,
                 0f,
-                4f))
+                4f,
+                id: $"{id}EdgeThickness"))
         {
             style.EdgeThickness = edgeThickness;
             changed = true;
         }
 
         var edgeColor = style.EdgeColor;
-        if (ImGui.ColorEdit4(
-                $"{T("config.style.overlayEdgeColor")}##{id}EdgeColor",
+        if (MirageUi.ColorEdit4(
+                T("config.style.overlayEdgeColor"),
                 ref edgeColor,
-                OverlayColorPickerFlags))
+                OverlayColorPickerFlags,
+                id: $"{id}EdgeColor"))
         {
             style.SetEdgeColor(edgeColor);
             changed = true;
