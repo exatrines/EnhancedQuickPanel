@@ -4,14 +4,14 @@
   "Punchline": "A customizable quick panel overlay.",
   "Description": "A customizable quick panel overlay for actions, items, macros, and text commands, with multiple pages and style presets.",
   "InternalName": "EnhancedQuickPanel",
-  "IconUrl": "https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/assets/images/EnhancedQuickPanel.png",
+  "IconUrl": "https://raw.githubusercontent.com/exatrines/EnhancedQuickPanel/master/EnhancedQuickPanel/Data/plugin-icon.png",
   "ImageUrls": [
     "https://raw.githubusercontent.com/exatrines/EnhancedQuickPanel/master/docs/screenshots/en/overlay.png"
   ],
-  "AssemblyVersion": "1.0.9.0",
+  "AssemblyVersion": "1.0.10.0",
   "RepoUrl": "https://github.com/exatrines/EnhancedQuickPanel",
-  "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.9.0/EnhancedQuickPanel.zip",
-  "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.9.0/EnhancedQuickPanel.zip",
+  "DownloadLinkInstall": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.10.0/EnhancedQuickPanel.zip",
+  "DownloadLinkUpdate": "https://github.com/exatrines/EnhancedQuickPanel/releases/download/v1.0.10.0/EnhancedQuickPanel.zip",
   "ApplicableVersion": "any",
   "DalamudApiLevel": "15",
   "Tags": [
