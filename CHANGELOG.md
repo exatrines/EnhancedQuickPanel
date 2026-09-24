@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Delete on the page list and in the slot editor now requires Shift, matching the overlay context menu
+
 ## [1.0.8.0] - 2026-09-25
 
 ### Added

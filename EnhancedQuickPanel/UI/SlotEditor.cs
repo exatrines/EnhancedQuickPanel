@@ -142,16 +142,16 @@ internal static class SlotEditor
                     ImGui.SameLine(0f, spacing);
                 }
 
-                var ctrlHeld = ImGui.GetIO().KeyCtrl;
+                var shiftHeld = ImGui.GetIO().KeyShift;
                 if (CenteredIconButton.Draw(
                         FontAwesomeIcon.Trash,
                         "##eqpSlotEditorClear",
                         actionButtonSize,
                         style.TextColor,
                         style.TextHoverColor,
-                        enabled: ctrlHeld,
+                        enabled: shiftHeld,
                         disabledTooltip: T("common.deleteHint"))
-                    && ctrlHeld)
+                    && shiftHeld)
                     ClearSlotContents(slot);
             }
 

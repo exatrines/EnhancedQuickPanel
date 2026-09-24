@@ -107,10 +107,10 @@ internal static class PageListPanel
 
         ImGui.SameLine(0, spacing);
 
-        var ctrlHeld = ImGui.GetIO().KeyCtrl;
+        var shiftHeld = ImGui.GetIO().KeyShift;
         var removable = Config.CanRemovePage(pageIndex) && !PageReorderDragHandler.IsDragging;
-        var canDelete = removable && ctrlHeld;
-        var deleteHint = removable && !ctrlHeld ? T("common.deleteHint") : null;
+        var canDelete = removable && shiftHeld;
+        var deleteHint = removable && !shiftHeld ? T("common.deleteHint") : null;
         if (CenteredIconButton.Draw(
                 FontAwesomeIcon.Trash,
                 $"##eqpPageListDelete{pageIndex}",

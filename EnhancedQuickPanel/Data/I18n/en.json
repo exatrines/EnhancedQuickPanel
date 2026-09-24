@@ -86,7 +86,7 @@
   "common.apply": "Apply",
   "common.save": "Save",
   "common.noName": "(No name)",
-  "common.deleteHint": "Hold Ctrl and click to delete",
+  "common.deleteHint": "Hold Shift and click to delete",
   "slot.kind.empty": "Empty",
   "slot.kind.action": "Action",
   "slot.kind.macro": "Macro",

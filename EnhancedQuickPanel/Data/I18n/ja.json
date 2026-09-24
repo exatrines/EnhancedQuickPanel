@@ -205,5 +205,5 @@
   "config.style.presetDescription": "組み込みのスタイルプリセットを適用します。",
   "config.header.showEmptySlotBorder": "空スロットの枠を表示する",
   "slot.tooltip.gearSet": "ギアセット #{0}",
-  "common.deleteHint": "Ctrl を押しながらクリックで削除"
+  "common.deleteHint": "Shift を押しながらクリックで削除"
 }
