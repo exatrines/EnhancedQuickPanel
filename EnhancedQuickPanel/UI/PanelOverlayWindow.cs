@@ -87,6 +87,7 @@ public sealed class PanelOverlayWindow : Window
 
         _drawing = true;
         _editingAtDrawStart = _isEditingPageName;
+        PageSelectorBar.BeginFrame();
         try
         {
             if (_isEditingPageName)
@@ -108,7 +109,9 @@ public sealed class PanelOverlayWindow : Window
                 ToggleEditMode,
                 ToggleCollapse,
                 CloseOverlay,
-                EditSlotAt);
+                EditSlotAt,
+                _selectedPage,
+                page => _selectedPage = page);
 
             if (!ImGui.IsMouseDown(ImGuiMouseButton.Right)) _rightPressedSlot = null;
             if (!ImGui.IsMouseDown(ImGuiMouseButton.Middle)) _middlePressedSlot = null;
@@ -520,7 +523,7 @@ public sealed class PanelOverlayWindow : Window
         DrawGrid(isEditMode);
     }
 
-    private void DrawPageTabs(bool separatorBefore = false, bool separatorAfter = false)
+    private void DrawPageTabs()
     {
         var barWidth = Config.ComputeGridWidth();
         var collapsed = !_isEditingPageName && Config.IsCollapsed;
@@ -531,19 +534,33 @@ public sealed class PanelOverlayWindow : Window
             ref _isEditingPageName,
             Config.PanelUi,
             collapsed ? null : barWidth,
-            showSeparatorBefore: separatorBefore,
-            showSeparatorAfter: separatorAfter,
             showPenButton: Config.ShowEditButton && !collapsed,
             showCollapseButton: collapsed || Config.ShowCollapseButton,
-            showPageSelector: !collapsed,
+            showPageSelector: !collapsed && !Config.HidePageName,
             pagePopupXOffset: ComputeEditModeLeftOffset(),
             onCollapse: ToggleCollapse);
+
+        TrySwitchPageFromPanelWheel();
 
         if (wasEditing != _isEditingPageName)
             _pendingCommit = true;
 
         if (_isEditingPageName && _selectionPage != _selectedPage)
             SelectFirstSlotForEditMode();
+    }
+
+    private void TrySwitchPageFromPanelWheel()
+    {
+        if (!Config.SwitchPageOnPanelWheel)
+            return;
+
+        if (PageSelectorBar.IsPagePopupOpen() || PanelContextMenu.IsOpen)
+            return;
+
+        if (!ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup))
+            return;
+
+        PageSelectorBar.TryApplyMouseWheel(ref _selectedPage, Config.Pages.Count);
     }
 
     private void SelectFirstSlotForEditMode()

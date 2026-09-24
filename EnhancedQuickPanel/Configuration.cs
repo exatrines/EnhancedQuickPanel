@@ -26,6 +26,12 @@ public sealed class Configuration
 
     public bool ShowCollapseButton { get; set; } = true;
 
+    public bool HidePageName { get; set; }
+
+    public bool SwitchPageOnPageNameWheel { get; set; } = true;
+
+    public bool SwitchPageOnPanelWheel { get; set; }
+
     public bool PluginMiddleClickTogglesEnabled { get; set; } = true;
 
     public bool PluginRightClickOpensSlotMenu { get; set; } = true;

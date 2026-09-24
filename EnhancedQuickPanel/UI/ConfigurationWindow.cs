@@ -98,45 +98,50 @@ public sealed class ConfigurationWindow : Window
         }
 
         DrawLayoutSettings();
+        DrawHeaderSettings();
+        DrawPluginShortcutSettings();
+        DrawContextMenuItemsSettings();
+    }
 
+    private void DrawHeaderSettings()
+    {
         MirageUi.SubHeader(T("config.header.title"));
         MirageUi.Text(T("config.header.description"), MirageUi.Color.Secondary);
 
-        var showPageSelectorPopup = Config.ShowPageSelectorPopup ?? true;
-        if (MirageUi.Checkbox(T("config.header.showPageSelectorPopup"), ref showPageSelectorPopup))
-        {
-            Config.ShowPageSelectorPopup = showPageSelectorPopup;
-            Config.Save();
-        }
+        CheckboxSetting("config.header.hidePageName", Config.HidePageName, value => Config.HidePageName = value);
+        CheckboxSetting(
+            "config.header.showPageSelectorPopup",
+            Config.ShowPageSelectorPopup ?? true,
+            value => Config.ShowPageSelectorPopup = value);
+        CheckboxSetting(
+            "config.header.switchPageOnPageNameWheel",
+            Config.SwitchPageOnPageNameWheel,
+            value => Config.SwitchPageOnPageNameWheel = value);
+        CheckboxSetting(
+            "config.header.switchPageOnPanelWheel",
+            Config.SwitchPageOnPanelWheel,
+            value => Config.SwitchPageOnPanelWheel = value);
+        CheckboxSetting(
+            "config.header.showEmptySlotBorder",
+            Config.ShowEmptySlotBorder ?? true,
+            value => Config.ShowEmptySlotBorder = value);
+        CheckboxSetting(
+            "config.header.showCollapseButton",
+            Config.ShowCollapseButton,
+            value => Config.ShowCollapseButton = value);
+        CheckboxSetting(
+            "config.header.showEditButton",
+            Config.ShowEditButton,
+            value => Config.ShowEditButton = value);
+    }
 
-        var showEmptySlotBorder = Config.ShowEmptySlotBorder ?? true;
-        if (MirageUi.Checkbox(T("config.header.showEmptySlotBorder"), ref showEmptySlotBorder))
-        {
-            Config.ShowEmptySlotBorder = showEmptySlotBorder;
-            Config.Save();
-        }
-
-        var showCollapseButton = Config.ShowCollapseButton;
-        if (MirageUi.Checkbox(T("config.header.showCollapseButton"), ref showCollapseButton))
-        {
-            Config.ShowCollapseButton = showCollapseButton;
-            Config.Save();
-        }
-
-        var showEditButton = Config.ShowEditButton;
-        if (MirageUi.Checkbox(T("config.header.showEditButton"), ref showEditButton))
-        {
-            Config.ShowEditButton = showEditButton;
-            Config.Save();
-        }
-
+    private void DrawPluginShortcutSettings()
+    {
         MirageUi.SubHeader(T("config.pluginShortcut.title"));
-        var middleClickToggle = Config.PluginMiddleClickTogglesEnabled;
-        if (MirageUi.Checkbox(T("config.pluginShortcut.middleClickToggle"), ref middleClickToggle))
-        {
-            Config.PluginMiddleClickTogglesEnabled = middleClickToggle;
-            Config.Save();
-        }
+        CheckboxSetting(
+            "config.pluginShortcut.middleClickToggle",
+            Config.PluginMiddleClickTogglesEnabled,
+            value => Config.PluginMiddleClickTogglesEnabled = value);
 
         var rightClickOpenSettings = !Config.PluginRightClickOpensSlotMenu;
         if (MirageUi.Checkbox(T("config.pluginShortcut.rightClickOpenSettings"), ref rightClickOpenSettings))
@@ -144,8 +149,16 @@ public sealed class ConfigurationWindow : Window
             Config.PluginRightClickOpensSlotMenu = !rightClickOpenSettings;
             Config.Save();
         }
+    }
 
-        DrawContextMenuItemsSettings();
+    private static void CheckboxSetting(string key, bool value, Action<bool> assign)
+    {
+        var current = value;
+        if (!MirageUi.Checkbox(T(key), ref current))
+            return;
+
+        assign(current);
+        Config.Save();
     }
 
     private static readonly (int Columns, int Rows)[] LayoutOptions =
@@ -200,6 +213,7 @@ public sealed class ConfigurationWindow : Window
         }
 
         Checkbox("contextMenu.settings", items.IsSettingsVisible, value => items.ShowSettings = value);
+        Checkbox("contextMenu.switchPage", items.IsSwitchPageVisible, value => items.ShowSwitchPage = value);
         Checkbox("contextMenu.importPage", items.IsImportPageVisible, value => items.ShowImportPage = value);
         Checkbox("contextMenu.exportPage", items.IsExportPageVisible, value => items.ShowExportPage = value);
         Checkbox("contextMenu.importNative", items.IsImportNativeVisible, value => items.ShowImportNative = value);

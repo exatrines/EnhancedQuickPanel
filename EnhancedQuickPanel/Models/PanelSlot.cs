@@ -169,4 +169,7 @@ public sealed class PanelPage
     public string Name { get; set; } = string.Empty;
 
     public List<PanelSlot> Slots { get; set; } = [];
+
+    public string DisplayName =>
+        string.IsNullOrWhiteSpace(Name) ? T("common.noName") : Name.Trim();
 }

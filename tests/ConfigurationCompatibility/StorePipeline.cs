@@ -61,6 +61,9 @@ internal static class StorePipeline
             Require(config.Pages[0].Slots[0].IconId == 42, "Published custom icon id is kept");
             Require(config.Pages[0].Slots.Count >= 25, "Missing slots are padded to 5×5");
             Require(config.ShowCollapseButton, "Missing ShowCollapseButton uses current default");
+            Require(!config.HidePageName, "Missing HidePageName uses current default");
+            Require(config.SwitchPageOnPageNameWheel, "Missing SwitchPageOnPageNameWheel uses current default");
+            Require(!config.SwitchPageOnPanelWheel, "Missing SwitchPageOnPanelWheel uses current default");
             Require(File.Exists(BackupPath(dir)), "Migration writes a v0 backup");
             Require(
                 original.SequenceEqual(File.ReadAllBytes(BackupPath(dir))),
@@ -109,6 +112,9 @@ internal static class StorePipeline
                   "Enabled": false,
                   "ShowEditButton": false,
                   "ShowCollapseButton": false,
+                  "HidePageName": true,
+                  "SwitchPageOnPageNameWheel": false,
+                  "SwitchPageOnPanelWheel": true,
                   "PluginMiddleClickTogglesEnabled": false,
                   "PluginRightClickOpensSlotMenu": false,
                   "PluginPickerUsesPopup": false,
@@ -119,6 +125,8 @@ internal static class StorePipeline
                 """);
             var config = Store(dir).Load();
             Require(!config.Enabled && !config.ShowEditButton && !config.ShowCollapseButton, "Explicit false flags are kept");
+            Require(config.HidePageName, "Explicit HidePageName true is kept");
+            Require(!config.SwitchPageOnPageNameWheel && config.SwitchPageOnPanelWheel, "Explicit page wheel flags are kept");
             Require(
                 !config.PluginMiddleClickTogglesEnabled && !config.PluginRightClickOpensSlotMenu,
                 "Explicit plugin click flags are kept");

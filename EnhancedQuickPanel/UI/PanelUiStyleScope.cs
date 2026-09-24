@@ -114,6 +114,7 @@ internal static class ContextMenuItem
 {
     public const float SeparatorHeight = 9f;
     private const float IconTextGap = 6f;
+    private const float TrailingIconScale = 0.75f;
 
     public static float ComputeRequiredWidth(ContextMenuStyleConfig style, ReadOnlySpan<string> labels)
     {
@@ -123,12 +124,18 @@ internal static class ContextMenuItem
         foreach (var label in labels)
             maxText = Math.Max(maxText, ImGui.CalcTextSize(label).X);
 
-        var checkWidth = ImGui.CalcTextSize("✓").X;
         Vector2 iconSize;
+        float trailingWidth;
         using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
             iconSize = ImGui.CalcTextSize(FontAwesomeIcon.Clipboard.ToIconString());
+            trailingWidth = Math.Max(
+                ImGui.CalcTextSize(FontAwesomeIcon.Check.ToIconString()).X,
+                ImGui.CalcTextSize(FontAwesomeIcon.ChevronRight.ToIconString()).X)
+                * TrailingIconScale;
+        }
 
-        var minWidth = padding * 2f + iconSize.X + IconTextGap + maxText + checkWidth;
+        var minWidth = padding * 2f + iconSize.X + IconTextGap + maxText + trailingWidth;
         return Math.Max(style.Width, minWidth);
     }
 
@@ -140,7 +147,6 @@ internal static class ContextMenuItem
         foreach (var label in labels)
             textHeight = Math.Max(textHeight, ImGui.CalcTextSize(label).Y);
 
-        textHeight = Math.Max(textHeight, ImGui.CalcTextSize("✓").Y);
         Vector2 iconSize;
         using (ImRaii.PushFont(UiBuilder.IconFont))
             iconSize = ImGui.CalcTextSize(FontAwesomeIcon.Clipboard.ToIconString());
@@ -188,24 +194,36 @@ internal static class ContextMenuItem
         FontAwesomeIcon icon,
         string id,
         ContextMenuStyleConfig style,
-        string? trailingLabel = null,
+        FontAwesomeIcon? trailingIcon = null,
         bool enabled = true,
-        string? disabledTooltip = null)
+        string? disabledTooltip = null,
+        ImGuiSelectableFlags selectableFlags = ImGuiSelectableFlags.None)
     {
         style.EnsureDefaults();
 
         var padding = new Vector2(style.Padding, style.Padding);
         var textSize = ImGui.CalcTextSize(label);
-        var trailingSize = string.IsNullOrEmpty(trailingLabel)
-            ? Vector2.Zero
-            : ImGui.CalcTextSize(trailingLabel);
-        var iconText = icon.ToIconString();
+        var trailingText = trailingIcon?.ToIconString();
+        var trailingFont = UiBuilder.IconFont;
+        var trailingFontSize = 0f;
+        Vector2 trailingSize;
         Vector2 iconSize;
-        using (ImRaii.PushFont(UiBuilder.IconFont))
-            iconSize = ImGui.CalcTextSize(iconText);
+        using (ImRaii.PushFont(trailingFont))
+        {
+            iconSize = ImGui.CalcTextSize(icon.ToIconString());
+            if (trailingText is null)
+            {
+                trailingSize = Vector2.Zero;
+            }
+            else
+            {
+                trailingFontSize = ImGui.GetFontSize() * TrailingIconScale;
+                trailingSize = ImGui.CalcTextSize(trailingText) * TrailingIconScale;
+            }
+        }
 
         var contentHeight = Math.Max(textSize.Y, iconSize.Y);
-        if (!string.IsNullOrEmpty(trailingLabel))
+        if (trailingText is not null)
             contentHeight = Math.Max(contentHeight, trailingSize.Y);
 
         var itemWidth = ImGui.GetContentRegionAvail().X;
@@ -226,7 +244,7 @@ internal static class ContextMenuItem
             clicked = ImGui.Selectable(
                 "##eqpContextMenuItem",
                 false,
-                ImGuiSelectableFlags.None,
+                selectableFlags,
                 new Vector2(itemWidth, itemHeight));
 
             var hovered = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
@@ -249,15 +267,15 @@ internal static class ContextMenuItem
 
             var drawList = ImGui.GetWindowDrawList();
             using (ImRaii.PushFont(UiBuilder.IconFont))
-                drawList.AddText(iconPos, color, iconText);
+                drawList.AddText(iconPos, color, icon.ToIconString());
             drawList.AddText(textPos, color, label);
 
-            if (!string.IsNullOrEmpty(trailingLabel))
+            if (trailingText is not null)
             {
                 var trailingPos = new Vector2(
                     rectMax.X - padding.X - trailingSize.X,
                     rectMin.Y + (rowHeight - trailingSize.Y) * 0.5f);
-                drawList.AddText(trailingPos, color, trailingLabel);
+                drawList.AddText(trailingFont, trailingFontSize, trailingPos, color, trailingText);
             }
         }
 

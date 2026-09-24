@@ -12,6 +12,10 @@ internal static class PageSelectorBar
     private const int PagePopupStyleVarCount = 3;
     private const int PagePopupScrollAfterRows = 5;
 
+    private static bool _wheelApplied;
+
+    internal static bool IsPagePopupOpen() => ImGui.IsPopupOpen(PagePopupId);
+
     /// <summary>Precomputed sizes used to lay out the page selector bar.</summary>
     private readonly record struct PageBarMetrics(
         float? TotalWidth,
@@ -23,9 +27,7 @@ internal static class PageSelectorBar
     private readonly record struct PopupLayout(
         Vector2 Position,
         float TotalWidth,
-        float ActionButtonWidth,
-        float ItemSpacing,
-        float ContentInsetX);
+        float ItemSpacing);
 
     public static void Draw(
         ref int selectedPage,
@@ -33,8 +35,6 @@ internal static class PageSelectorBar
         ref bool isEditingPageName,
         PanelUiStyleConfig style,
         float? barWidth = null,
-        bool showSeparatorBefore = false,
-        bool showSeparatorAfter = false,
         bool showPenButton = true,
         bool showCollapseButton = false,
         bool showPageSelector = true,
@@ -46,9 +46,6 @@ internal static class PageSelectorBar
             return;
 
         selectedPage = Math.Clamp(selectedPage, 0, pages.Count - 1);
-
-        if (showSeparatorBefore)
-            ImGui.Separator();
 
         var metrics = CreateMetrics(barWidth, showPenButton, showCollapseButton, showPageSelector);
 
@@ -69,9 +66,6 @@ internal static class PageSelectorBar
                 ref selectedPage,
                 pages,
                 CreatePopupLayout(metrics, isEditingPageName ? pagePopupXOffset : 0f));
-
-        if (showSeparatorAfter)
-            ImGui.Separator();
     }
 
     private static PageBarMetrics CreateMetrics(
@@ -85,11 +79,11 @@ internal static class PageSelectorBar
         var iconButtonCount = (showCollapseButton ? 1 : 0) + (showPenButton ? 1 : 0);
         var gapCount = iconButtonCount;
 
-        if (!barWidth.HasValue || !showPageSelector)
-            return new PageBarMetrics(barWidth, showPageSelector ? null : 0f, actionButtonWidth, rowGap);
+        if (!barWidth.HasValue)
+            return new PageBarMetrics(null, showPageSelector ? null : 0f, actionButtonWidth, rowGap);
 
         var selectorWidth = Math.Max(
-            64f,
+            showPageSelector ? 64f : 0f,
             barWidth.Value - actionButtonWidth * iconButtonCount - rowGap * gapCount);
         return new PageBarMetrics(barWidth.Value, selectorWidth, actionButtonWidth, rowGap);
     }
@@ -125,6 +119,14 @@ internal static class PageSelectorBar
             DrawPageLabel(ref selectedPage, pages, selectorSize);
             drewItem = true;
         }
+        else if (showPenButton && metrics.SelectorWidth is > 0f)
+        {
+            if (drewItem)
+                ImGui.SameLine(0, metrics.ItemSpacing);
+
+            ImGui.Dummy(new Vector2(metrics.SelectorWidth.Value, rowHeight));
+            drewItem = true;
+        }
 
         if (!showPenButton)
             return;
@@ -154,14 +156,14 @@ internal static class PageSelectorBar
         IList<PanelPage> pages,
         Vector2 size)
     {
-        var displayName = GetDisplayName(pages[selectedPage], selectedPage);
+        var displayName = pages[selectedPage].DisplayName;
 
         var clicked = ImGui.Button($"{displayName}##eqpPageSelector", size);
         if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked) && (Config.ShowPageSelectorPopup ?? true))
             ImGui.OpenPopup(PagePopupId);
 
-        if (ImGui.IsItemHovered())
-            HandleMouseWheel(ref selectedPage, pages.Count);
+        if (ImGui.IsItemHovered() && Config.SwitchPageOnPageNameWheel)
+            TryApplyMouseWheel(ref selectedPage, pages.Count);
     }
 
     private static void DrawPenButton(
@@ -202,9 +204,7 @@ internal static class PageSelectorBar
         return new PopupLayout(
             new Vector2(windowPos.X + padding + popupXOffset, rowMax.Y),
             popupWidth,
-            metrics.ActionButtonWidth,
-            metrics.ItemSpacing,
-            padding);
+            metrics.ItemSpacing);
     }
 
     private static float ComputePopupScrollHeight()
@@ -275,25 +275,29 @@ internal static class PageSelectorBar
     {
         for (var page = 0; page < pages.Count; page++)
         {
-            var itemLabel = GetDisplayName(pages[page], page);
+            var itemLabel = pages[page].DisplayName;
 
             if (ImGui.Selectable(itemLabel, page == selectedPage))
                 selectedPage = page;
         }
     }
 
-    private static string GetDisplayName(PanelPage page, int pageIndex) =>
-        string.IsNullOrWhiteSpace(page.Name)
-            ? "（無題）"
-            : page.Name.Trim();
-
-    private static void HandleMouseWheel(ref int selectedPage, int pageCount)
+    internal static void TryApplyMouseWheel(ref int selectedPage, int pageCount)
     {
+        if (_wheelApplied)
+            return;
+
         var wheel = ImGui.GetIO().MouseWheel;
         if (wheel > 0f)
             selectedPage = Math.Max(0, selectedPage - 1);
         else if (wheel < 0f)
             selectedPage = Math.Min(pageCount - 1, selectedPage + 1);
+        else
+            return;
+
+        _wheelApplied = true;
     }
+
+    internal static void BeginFrame() => _wheelApplied = false;
 }
 

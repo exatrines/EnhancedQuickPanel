@@ -9,6 +9,8 @@ public sealed class ContextMenuItemsConfig
 
     public bool? ShowSettings { get; set; }
 
+    public bool? ShowSwitchPage { get; set; }
+
     public bool? ShowExportPage { get; set; }
 
     public bool? ShowImportPage { get; set; }
@@ -23,6 +25,8 @@ public sealed class ContextMenuItemsConfig
 
     public bool IsSettingsVisible => ShowSettings ?? true;
 
+    public bool IsSwitchPageVisible => ShowSwitchPage ?? true;
+
     public bool IsExportPageVisible => ShowExportPage ?? true;
 
     public bool IsImportPageVisible => ShowImportPage ?? true;
@@ -33,6 +37,7 @@ public sealed class ContextMenuItemsConfig
 
     public bool HasVisibleItems =>
         IsSettingsVisible
+        || IsSwitchPageVisible
         || IsImportPageVisible
         || IsExportPageVisible
         || IsImportNativeVisible

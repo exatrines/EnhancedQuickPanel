@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
@@ -10,6 +11,7 @@ namespace EnhancedQuickPanel.UI;
 internal static class PanelContextMenu
 {
     private const string PopupId = "##eqpPanelContext";
+    private const int SubmenuScrollAfterRows = 5;
     private const ImGuiWindowFlags WindowFlags =
         ImGuiWindowFlags.NoResize
         | ImGuiWindowFlags.NoMove
@@ -22,6 +24,9 @@ internal static class PanelContextMenu
     private static Vector2 _menuMin;
     private static Vector2 _menuMax;
     private static bool _hasMenuRect;
+    private static Vector2 _submenuMin;
+    private static Vector2 _submenuMax;
+    private static bool _hasSubmenuRect;
 
     public static void SetSlotContext(int page, int index)
     {
@@ -29,15 +34,17 @@ internal static class PanelContextMenu
         _slotIndex = index;
     }
 
+    public static bool IsOpen => ImGui.IsPopupOpen(PopupId);
+
     public static bool IsMouseOverMenu
     {
         get
         {
-            if (!_hasMenuRect)
+            if (!_hasMenuRect && !_hasSubmenuRect)
                 return false;
             var mouse = ImGui.GetIO().MousePos;
-            return mouse.X >= _menuMin.X && mouse.X < _menuMax.X
-                && mouse.Y >= _menuMin.Y && mouse.Y < _menuMax.Y;
+            return Contains(mouse, _menuMin, _menuMax, _hasMenuRect)
+                || Contains(mouse, _submenuMin, _submenuMax, _hasSubmenuRect);
         }
     }
 
@@ -51,13 +58,15 @@ internal static class PanelContextMenu
         Action toggleEdit,
         Action toggleCollapse,
         Action closeOverlay,
-        Action<int, int> editSlot)
+        Action<int, int> editSlot,
+        int selectedPage,
+        Action<int> switchPage)
     {
         Config.EnsureDefaults();
         if (!ImGui.IsPopupOpen(PopupId) && !slotClickedThisFrame)
             ClearSlotContext();
 
-        var hasPanel = TryGetPanelModel(out var panel);
+        var hasPanel = Config.ContextMenuItems.HasVisibleItems;
         var hasSlot = TryGetSlotModel(out var slot);
         if (!hasPanel && !hasSlot)
             return;
@@ -65,14 +74,23 @@ internal static class PanelContextMenu
         TryOpen(pluginRightClickConsumed, slotClickedThisFrame);
 
         var panelRows = hasPanel
-            ? BuildPanelRows(panel, isEditing, importPage, exportPage, importNative, toggleEdit, toggleCollapse, closeOverlay)
+            ? BuildPanelRows(
+                isEditing,
+                importPage,
+                exportPage,
+                importNative,
+                toggleEdit,
+                toggleCollapse,
+                closeOverlay,
+                selectedPage,
+                switchPage)
             : new List<MenuActionRow>();
         var slotRows = hasSlot ? BuildSlotRows(slot, editSlot) : new List<MenuActionRow>();
 
         var labels = new List<string>(16);
         if (hasPanel)
         {
-            labels.Add(panel.Header);
+            labels.Add(PluginServices.PluginInterface.Manifest.Name);
             AddRowLabels(labels, panelRows);
         }
 
@@ -104,11 +122,16 @@ internal static class PanelContextMenu
                 _menuMin = pos;
                 _menuMax = pos + ImGui.GetWindowSize();
                 _hasMenuRect = true;
+                _hasSubmenuRect = false;
 
                 if (hasPanel)
                 {
-                    ContextMenuItem.DrawHeader(panel.Header, style, rowHeight);
-                    DrawRows(panelRows, style);
+                    ContextMenuItem.DrawHeader(PluginServices.PluginInterface.Manifest.Name, style, rowHeight);
+                    if (DrawRows(panelRows, style, rowHeight))
+                    {
+                        ImGui.CloseCurrentPopup();
+                        _anchor = null;
+                    }
                 }
 
                 if (hasSlot)
@@ -116,18 +139,18 @@ internal static class PanelContextMenu
                     if (hasPanel)
                         ContextMenuItem.DrawSeparator(style);
                     ContextMenuItem.DrawHeader(slot.Name, style, rowHeight);
-                    DrawRows(slotRows, style);
+                    DrawRows(slotRows, style, rowHeight);
                 }
 
                 ImGui.EndPopup();
             }
             else
-                _hasMenuRect = false;
+                ClearHoverRects();
         }
 
         if (!ImGui.IsPopupOpen(PopupId))
         {
-            _hasMenuRect = false;
+            ClearHoverRects();
             if (!slotClickedThisFrame)
             {
                 _anchor = null;
@@ -142,6 +165,12 @@ internal static class PanelContextMenu
     {
         _slotPage = -1;
         _slotIndex = -1;
+    }
+
+    private static void ClearHoverRects()
+    {
+        _hasMenuRect = false;
+        _hasSubmenuRect = false;
     }
 
     private static void TryOpen(bool pluginRightClickConsumed, bool slotClickedThisFrame)
@@ -169,42 +198,154 @@ internal static class PanelContextMenu
             labels.Add(row.Label);
     }
 
-    private static void DrawRows(List<MenuActionRow> rows, ContextMenuStyleConfig style)
+    private static bool DrawRows(
+        List<MenuActionRow> rows,
+        ContextMenuStyleConfig style,
+        float rowHeight)
     {
+        var closeParent = false;
         foreach (var row in rows)
         {
-            if (ContextMenuItem.Draw(
-                    row.Label,
-                    row.Icon,
-                    row.Id,
-                    style,
-                    row.TrailingLabel,
-                    row.Enabled,
-                    row.DisabledTooltip))
-                row.OnClick();
+            var hasSubmenu = row.HasSubmenu;
+            var flags = hasSubmenu
+                ? ImGuiSelectableFlags.DontClosePopups
+                : ImGuiSelectableFlags.None;
+            var clicked = ContextMenuItem.Draw(
+                row.Label,
+                row.Icon,
+                row.Id,
+                style,
+                row.TrailingIcon ?? (hasSubmenu ? FontAwesomeIcon.ChevronRight : null),
+                row.Enabled,
+                row.DisabledTooltip,
+                flags);
+            if (clicked && hasSubmenu)
+                ImGui.OpenPopup(SubmenuPopupId(row.Id));
+            else if (clicked)
+                row.OnClick?.Invoke();
+
+            if (hasSubmenu && DrawSubmenu(row, style, rowHeight))
+                closeParent = true;
         }
+
+        return closeParent;
     }
 
+    private static bool DrawSubmenu(
+        in MenuActionRow row,
+        ContextMenuStyleConfig style,
+        float rowHeight)
+    {
+        var items = row.SubmenuItems;
+        if (items is not { Count: > 0 })
+            return false;
+
+        var itemRectMax = ImGui.GetItemRectMax();
+        var itemRectMin = ImGui.GetItemRectMin();
+        var labels = new string[items.Count];
+        for (var i = 0; i < items.Count; i++)
+            labels[i] = items[i].Label;
+
+        var width = ContextMenuItem.ComputeRequiredWidth(style, labels);
+        var visibleRows = Math.Min(items.Count, SubmenuScrollAfterRows);
+        var height = rowHeight * visibleRows + style.Padding * 2f;
+        ImGui.SetNextWindowPos(new Vector2(itemRectMax.X, itemRectMin.Y), ImGuiCond.Always);
+        ImGui.SetNextWindowSize(new Vector2(width, height), ImGuiCond.Always);
+
+        var popupId = SubmenuPopupId(row.Id);
+        var submenuFlags = WindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+        if (!ImGui.BeginPopup(popupId, submenuFlags))
+            return false;
+
+        var pos = ImGui.GetWindowPos();
+        _submenuMin = pos;
+        _submenuMax = pos + ImGui.GetWindowSize();
+        _hasSubmenuRect = true;
+
+        var chosen = false;
+        var useScroll = items.Count > SubmenuScrollAfterRows;
+        if (useScroll)
+        {
+            using var scroll = ImRaii.Child(
+                $"{popupId}Scroll",
+                new Vector2(ImGui.GetContentRegionAvail().X, rowHeight * SubmenuScrollAfterRows),
+                false);
+            if (scroll)
+                chosen = DrawSubmenuItems(items, style);
+        }
+        else
+        {
+            chosen = DrawSubmenuItems(items, style);
+        }
+
+        ImGui.EndPopup();
+        return chosen;
+    }
+
+    private static bool DrawSubmenuItems(IReadOnlyList<MenuActionRow> items, ContextMenuStyleConfig style)
+    {
+        var chosen = false;
+        foreach (var item in items)
+        {
+            if (!ContextMenuItem.Draw(
+                    item.Label,
+                    item.Icon,
+                    item.Id,
+                    style,
+                    item.TrailingIcon,
+                    item.Enabled,
+                    item.DisabledTooltip))
+                continue;
+
+            item.OnClick?.Invoke();
+            chosen = true;
+        }
+
+        return chosen;
+    }
+
+    private static string SubmenuPopupId(string rowId) => $"{rowId}Sub";
+
+    private static bool Contains(Vector2 mouse, Vector2 min, Vector2 max, bool enabled) =>
+        enabled
+        && mouse.X >= min.X && mouse.X < max.X
+        && mouse.Y >= min.Y && mouse.Y < max.Y;
+
     private static List<MenuActionRow> BuildPanelRows(
-        PanelMenuModel model,
         bool isEditing,
         Action importPage,
         Action exportPage,
         Action<int> importNative,
         Action toggleEdit,
         Action toggleCollapse,
-        Action closeOverlay)
+        Action closeOverlay,
+        int selectedPage,
+        Action<int> switchPage)
     {
+        var items = Config.ContextMenuItems;
         var rows = new List<MenuActionRow>(8);
-        if (model.ShowSettings)
-            rows.Add(new(model.SettingsLabel, FontAwesomeIcon.Cog, "##eqpContextSettings", ToggleConfig));
-        if (model.ShowImportPage)
-            rows.Add(new(model.ImportPageLabel, FontAwesomeIcon.Download, "##eqpContextImportPage", importPage));
-        if (model.ShowExportPage)
-            rows.Add(new(model.ExportPageLabel, FontAwesomeIcon.Upload, "##eqpContextExportPage", exportPage));
-        if (model.ShowImportNative)
+        if (items.IsSettingsVisible)
+            rows.Add(new(T("contextMenu.settings"), FontAwesomeIcon.Cog, "##eqpContextSettings", ToggleConfig));
+        if (items.IsSwitchPageVisible)
         {
-            rows.Add(new(model.ImportNativeLabel, FontAwesomeIcon.FileImport, "##eqpContextImportNative", () =>
+            var pageItems = BuildSwitchPageItems(selectedPage, switchPage);
+            if (pageItems.Count > 0)
+            {
+                rows.Add(new(
+                    T("contextMenu.switchPage"),
+                    FontAwesomeIcon.LayerGroup,
+                    "##eqpContextSwitchPageItem",
+                    null,
+                    SubmenuItems: pageItems));
+            }
+        }
+        if (items.IsImportPageVisible)
+            rows.Add(new(T("contextMenu.importPage"), FontAwesomeIcon.Download, "##eqpContextImportPage", importPage));
+        if (items.IsExportPageVisible)
+            rows.Add(new(T("contextMenu.exportPage"), FontAwesomeIcon.Upload, "##eqpContextExportPage", exportPage));
+        if (items.IsImportNativeVisible)
+        {
+            rows.Add(new(T("contextMenu.importNative"), FontAwesomeIcon.FileImport, "##eqpContextImportNative", () =>
             {
                 NativeQuickPanelImportPopup.Open(onImported: importNative);
                 ImGui.CloseCurrentPopup();
@@ -212,13 +353,31 @@ internal static class PanelContextMenu
             }));
         }
 
-        if (model.ShowEdit)
-            rows.Add(new(model.EditLabel, FontAwesomeIcon.Pen, "##eqpContextEdit", toggleEdit, TrailingLabel: isEditing ? "✓" : null));
-        if (model.ShowCollapse)
-            rows.Add(new(model.CollapseLabel, PanelCollapse.Icon, "##eqpContextCollapse", toggleCollapse));
-        if (model.ShowClose)
-            rows.Add(new(model.CloseLabel, FontAwesomeIcon.Times, "##eqpContextClose", closeOverlay));
+        if (items.IsEditVisible)
+            rows.Add(new(T("contextMenu.edit"), FontAwesomeIcon.Pen, "##eqpContextEdit", toggleEdit, TrailingIcon: isEditing ? FontAwesomeIcon.Check : null));
+        if (items.IsCollapseVisible)
+            rows.Add(new(PanelCollapse.Label, PanelCollapse.Icon, "##eqpContextCollapse", toggleCollapse));
+        if (items.IsCloseVisible)
+            rows.Add(new(T("contextMenu.close"), FontAwesomeIcon.Times, "##eqpContextClose", closeOverlay));
         return rows;
+    }
+
+    private static List<MenuActionRow> BuildSwitchPageItems(int selectedPage, Action<int> switchPage)
+    {
+        var pages = Config.Pages;
+        var items = new List<MenuActionRow>(pages.Count);
+        for (var page = 0; page < pages.Count; page++)
+        {
+            var pageIndex = page;
+            items.Add(new(
+                pages[page].DisplayName,
+                FontAwesomeIcon.FileAlt,
+                $"##eqpContextSwitchPage{pageIndex}",
+                () => switchPage(pageIndex),
+                TrailingIcon: pageIndex == selectedPage ? FontAwesomeIcon.Check : null));
+        }
+
+        return items;
     }
 
     private static List<MenuActionRow> BuildSlotRows(SlotMenuModel model, Action<int, int> editSlot)
@@ -277,34 +436,6 @@ internal static class PanelContextMenu
         return rows;
     }
 
-    private static bool TryGetPanelModel(out PanelMenuModel model)
-    {
-        var items = Config.ContextMenuItems;
-        if (!items.HasVisibleItems)
-        {
-            model = default;
-            return false;
-        }
-
-        model = new PanelMenuModel(
-            PluginServices.PluginInterface.Manifest.Name,
-            items.IsSettingsVisible,
-            items.IsImportPageVisible,
-            items.IsExportPageVisible,
-            items.IsImportNativeVisible,
-            items.IsEditVisible,
-            items.IsCollapseVisible,
-            items.IsCloseVisible,
-            T("contextMenu.settings"),
-            T("contextMenu.importPage"),
-            T("contextMenu.exportPage"),
-            T("contextMenu.importNative"),
-            T("contextMenu.edit"),
-            PanelCollapse.Label,
-            T("contextMenu.close"));
-        return true;
-    }
-
     private static bool TryGetSlotModel(out SlotMenuModel model)
     {
         model = default;
@@ -342,27 +473,14 @@ internal static class PanelContextMenu
         string Label,
         FontAwesomeIcon Icon,
         string Id,
-        Action OnClick,
-        string? TrailingLabel = null,
+        Action? OnClick,
+        FontAwesomeIcon? TrailingIcon = null,
         bool Enabled = true,
-        string? DisabledTooltip = null);
-
-    private readonly record struct PanelMenuModel(
-        string Header,
-        bool ShowSettings,
-        bool ShowImportPage,
-        bool ShowExportPage,
-        bool ShowImportNative,
-        bool ShowEdit,
-        bool ShowCollapse,
-        bool ShowClose,
-        string SettingsLabel,
-        string ImportPageLabel,
-        string ExportPageLabel,
-        string ImportNativeLabel,
-        string EditLabel,
-        string CollapseLabel,
-        string CloseLabel);
+        string? DisabledTooltip = null,
+        IReadOnlyList<MenuActionRow>? SubmenuItems = null)
+    {
+        public bool HasSubmenu => SubmenuItems is { Count: > 0 };
+    }
 
     private readonly record struct SlotMenuModel(
         PanelSlot Slot,

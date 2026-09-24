@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.8.0] - 2026-09-25
+
+### Added
+
+- Hide the page name on the overlay header. The edit button stays on the right
+- Switch pages with the mouse wheel on the page name button (on by default) or anywhere on the panel, including slots (off by default)
+- Switch page on the overlay context menu, with a scrollable submenu of page names
+
 ## [1.0.7.0] - 2026-09-17
 
 ### Changed
@@ -96,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.7.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.8.0...HEAD
+[1.0.8.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.7.0...v1.0.8.0
 [1.0.7.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.6.0...v1.0.7.0
 [1.0.6.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...v1.0.6.0
 [1.0.5.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.4.0...v1.0.5.0
