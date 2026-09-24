@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.9.0] - 2026-09-25
+
 ### Changed
 
 - Delete on the page list and in the slot editor now requires Shift, matching the overlay context menu
@@ -108,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.8.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.9.0...HEAD
+[1.0.9.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.8.0...v1.0.9.0
 [1.0.8.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.7.0...v1.0.8.0
 [1.0.7.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.6.0...v1.0.7.0
 [1.0.6.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.5.0...v1.0.6.0
