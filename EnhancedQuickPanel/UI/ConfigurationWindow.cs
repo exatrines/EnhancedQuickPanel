@@ -88,7 +88,18 @@ public sealed class ConfigurationWindow : Window
 
     private void DrawSettingsPage()
     {
+        DrawQuickPanelSettings();
+        DrawLayoutSettings();
+        DrawHeaderSettings();
+        DrawOtherSettings();
+        DrawPluginShortcutSettings();
+        DrawContextMenuItemsSettings();
+    }
+
+    private void DrawQuickPanelSettings()
+    {
         MirageUi.SubHeader(T("config.quickPanel.title"));
+        MirageUi.Text(T("config.quickPanel.description"), MirageUi.Color.Secondary);
 
         var replaceNative = Config.DisplayMode == PanelDisplayMode.PluginOnly;
         if (MirageUi.Checkbox(T("config.quickPanel.replaceNative"), ref replaceNative))
@@ -96,11 +107,6 @@ public sealed class ConfigurationWindow : Window
             PanelDisplayCoordinator.SetDisplayMode(
                 replaceNative ? PanelDisplayMode.PluginOnly : PanelDisplayMode.NativeOnly);
         }
-
-        DrawLayoutSettings();
-        DrawHeaderSettings();
-        DrawPluginShortcutSettings();
-        DrawContextMenuItemsSettings();
     }
 
     private void DrawHeaderSettings()
@@ -108,31 +114,94 @@ public sealed class ConfigurationWindow : Window
         MirageUi.SubHeader(T("config.header.title"));
         MirageUi.Text(T("config.header.description"), MirageUi.Color.Secondary);
 
-        CheckboxSetting("config.header.hidePageName", Config.HidePageName, value => Config.HidePageName = value);
+        DrawPageNameButtonSetting();
+        DrawHeaderButtonSetting(
+            "config.header.showEditButton",
+            Config.ShowEditButton,
+            value => Config.ShowEditButton = value,
+            "eqpEditSide",
+            Config.EditButtonOnRight,
+            value => Config.EditButtonOnRight = value,
+            disableSideWhenHidden: true);
+        DrawHeaderButtonSetting(
+            "config.header.showCollapseButton",
+            Config.ShowCollapseButton,
+            value => Config.ShowCollapseButton = value,
+            "eqpCollapseSide",
+            Config.CollapseButtonOnRight,
+            value => Config.CollapseButtonOnRight = value,
+            disableSideWhenHidden: false);
+    }
+
+    private static void DrawPageNameButtonSetting()
+    {
+        var shown = Config.ShowPageName;
+        using (var group = MirageUi.CheckboxGroup(T("config.header.showPageName"), ref shown))
+        {
+            if (group.Changed)
+            {
+                Config.ShowPageName = shown;
+                Config.Save();
+            }
+
+            using (MirageUi.DisabledIf(!shown))
+            {
+                CheckboxSetting(
+                    "config.header.openPageSelectorOnClick",
+                    Config.ShowPageSelectorPopup,
+                    value => Config.ShowPageSelectorPopup = value);
+                CheckboxSetting(
+                    "config.header.switchPageOnScroll",
+                    Config.SwitchPageOnPageNameWheel,
+                    value => Config.SwitchPageOnPageNameWheel = value);
+            }
+        }
+    }
+
+    private static void DrawHeaderButtonSetting(
+        string checkboxKey,
+        bool shown,
+        Action<bool> assignShown,
+        string sideId,
+        bool onRight,
+        Action<bool> assignOnRight,
+        bool disableSideWhenHidden)
+    {
+        var current = shown;
+        using (var group = MirageUi.CheckboxGroup(T(checkboxKey), ref current))
+        {
+            if (group.Changed)
+            {
+                assignShown(current);
+                Config.Save();
+            }
+
+            var side = onRight ? 1 : 0;
+            using (MirageUi.DisabledIf(disableSideWhenHidden && !current))
+            {
+                var leftChanged = MirageUi.Radio($"{T("config.header.sideLeft")}##{sideId}L", ref side, 0);
+                ImGui.SameLine();
+                var rightChanged = MirageUi.Radio($"{T("config.header.sideRight")}##{sideId}R", ref side, 1);
+                if (leftChanged || rightChanged)
+                {
+                    assignOnRight(side == 1);
+                    Config.Save();
+                }
+            }
+        }
+    }
+
+    private void DrawOtherSettings()
+    {
+        MirageUi.SubHeader(T("config.other.title"));
         CheckboxSetting(
-            "config.header.showPageSelectorPopup",
-            Config.ShowPageSelectorPopup ?? true,
-            value => Config.ShowPageSelectorPopup = value);
-        CheckboxSetting(
-            "config.header.switchPageOnPageNameWheel",
-            Config.SwitchPageOnPageNameWheel,
-            value => Config.SwitchPageOnPageNameWheel = value);
-        CheckboxSetting(
-            "config.header.switchPageOnPanelWheel",
+            "config.other.switchPageOnPanelScroll",
             Config.SwitchPageOnPanelWheel,
             value => Config.SwitchPageOnPanelWheel = value);
         CheckboxSetting(
-            "config.header.showEmptySlotBorder",
-            Config.ShowEmptySlotBorder ?? true,
+            "config.other.showEmptySlotBorder",
+            Config.ShowEmptySlotBorder,
             value => Config.ShowEmptySlotBorder = value);
-        CheckboxSetting(
-            "config.header.showCollapseButton",
-            Config.ShowCollapseButton,
-            value => Config.ShowCollapseButton = value);
-        CheckboxSetting(
-            "config.header.showEditButton",
-            Config.ShowEditButton,
-            value => Config.ShowEditButton = value);
     }
 
     private void DrawPluginShortcutSettings()
@@ -143,12 +212,10 @@ public sealed class ConfigurationWindow : Window
             Config.PluginMiddleClickTogglesEnabled,
             value => Config.PluginMiddleClickTogglesEnabled = value);
 
-        var rightClickOpenSettings = !Config.PluginRightClickOpensSlotMenu;
-        if (MirageUi.Checkbox(T("config.pluginShortcut.rightClickOpenSettings"), ref rightClickOpenSettings))
-        {
-            Config.PluginRightClickOpensSlotMenu = !rightClickOpenSettings;
-            Config.Save();
-        }
+        CheckboxSetting(
+            "config.pluginShortcut.rightClickOpenSettings",
+            !Config.PluginRightClickOpensSlotMenu,
+            value => Config.PluginRightClickOpensSlotMenu = !value);
     }
 
     private static void CheckboxSetting(string key, bool value, Action<bool> assign)

@@ -1,4 +1,5 @@
 ﻿using EnhancedQuickPanel.Models;
+using Newtonsoft.Json;
 
 namespace EnhancedQuickPanel;
 
@@ -26,7 +27,12 @@ public sealed class Configuration
 
     public bool ShowCollapseButton { get; set; } = true;
 
-    public bool HidePageName { get; set; }
+    [JsonProperty("ExpandToLeft")]
+    public bool CollapseButtonOnRight { get; set; }
+
+    public bool EditButtonOnRight { get; set; } = true;
+
+    public bool ShowPageName { get; set; } = true;
 
     public bool SwitchPageOnPageNameWheel { get; set; } = true;
 
@@ -52,9 +58,9 @@ public sealed class Configuration
     public float ComputeGridHeight() =>
         PanelLayout.ComputeSpan(GridRows, SlotSize, SlotPadding);
 
-    public bool? ShowPageSelectorPopup { get; set; }
+    public bool ShowPageSelectorPopup { get; set; } = true;
 
-    public bool? ShowEmptySlotBorder { get; set; }
+    public bool ShowEmptySlotBorder { get; set; } = true;
 
     public float OverlayPosX { get; set; } = 200f;
 

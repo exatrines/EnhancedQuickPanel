@@ -75,6 +75,7 @@ internal sealed class ConfigurationStore
 
         var migrate = inspection.Kind == ConfigFormatKind.Legacy;
         var payload = migrate ? ConfigurationMigration.MigrateToCurrent((JObject)token) : (JObject)token;
+        ConfigurationMigration.NormalizeCurrentKeys(payload);
 
         Configuration? config;
         try

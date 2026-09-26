@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.11.0] - 2026-09-26
+
+### Added
+
+- Left and right placement for the edit and collapse buttons. Putting collapse on the right expands the panel to the left
+
+### Changed
+
+- Header settings show the page name button, with click-to-select and scroll-to-switch nested under it
+- Empty slot frames and switching pages by scrolling the panel are under Other
+
 ## [1.0.10.0] - 2026-09-25
 
 ### Changed
@@ -116,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.10.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.11.0...HEAD
+[1.0.11.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.10.0...v1.0.11.0
 [1.0.10.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.9.0...v1.0.10.0
 [1.0.9.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.8.0...v1.0.9.0
 [1.0.8.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.7.0...v1.0.8.0

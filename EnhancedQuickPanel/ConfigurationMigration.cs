@@ -77,6 +77,14 @@ internal static class ConfigurationMigration
         return copy;
     }
 
+    public static void NormalizeCurrentKeys(JObject obj)
+    {
+        if (obj["ShowPageName"] is null && obj["HidePageName"] is not null)
+            obj["ShowPageName"] = !obj.Value<bool>("HidePageName");
+
+        obj.Remove("HidePageName");
+    }
+
     private static ConfigFormatInspection Invalid(string reason) =>
         new(ConfigFormatKind.Invalid, -1, reason);
 }

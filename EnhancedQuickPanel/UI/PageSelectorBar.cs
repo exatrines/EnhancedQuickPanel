@@ -77,14 +77,13 @@ internal static class PageSelectorBar
         var actionButtonWidth = ImGui.GetFrameHeight();
         var rowGap = ImGui.GetStyle().ItemSpacing.X;
         var iconButtonCount = (showCollapseButton ? 1 : 0) + (showPenButton ? 1 : 0);
-        var gapCount = iconButtonCount;
 
         if (!barWidth.HasValue)
             return new PageBarMetrics(null, showPageSelector ? null : 0f, actionButtonWidth, rowGap);
 
         var selectorWidth = Math.Max(
             showPageSelector ? 64f : 0f,
-            barWidth.Value - actionButtonWidth * iconButtonCount - rowGap * gapCount);
+            barWidth.Value - actionButtonWidth * iconButtonCount - rowGap * iconButtonCount);
         return new PageBarMetrics(barWidth.Value, selectorWidth, actionButtonWidth, rowGap);
     }
 
@@ -101,40 +100,67 @@ internal static class PageSelectorBar
     {
         var rowHeight = ImGui.GetFrameHeight();
         var drewItem = false;
+        var editOnRight = Config.EditButtonOnRight;
+        var collapseOnRight = Config.CollapseButtonOnRight;
 
-        if (showCollapseButton)
+        void SpaceBeforeNext()
         {
+            if (drewItem)
+                ImGui.SameLine(0, metrics.ItemSpacing);
+        }
+
+        if (showCollapseButton && !collapseOnRight)
+        {
+            SpaceBeforeNext();
             DrawCollapseButton(style, metrics.ActionButtonWidth, onCollapse);
+            drewItem = true;
+        }
+
+        if (showPenButton && !editOnRight)
+        {
+            SpaceBeforeNext();
+            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth, rowHeight);
             drewItem = true;
         }
 
         if (showPageSelector)
         {
-            if (drewItem)
-                ImGui.SameLine(0, metrics.ItemSpacing);
-
+            SpaceBeforeNext();
             var selectorSize = metrics.SelectorWidth.HasValue
                 ? new Vector2(metrics.SelectorWidth.Value, rowHeight)
                 : new Vector2(0f, rowHeight);
             DrawPageLabel(ref selectedPage, pages, selectorSize);
             drewItem = true;
         }
-        else if (showPenButton && metrics.SelectorWidth is > 0f)
+        else if (ShouldPadForRightAlign(metrics, showPenButton, showCollapseButton, editOnRight, collapseOnRight))
         {
-            if (drewItem)
-                ImGui.SameLine(0, metrics.ItemSpacing);
-
-            ImGui.Dummy(new Vector2(metrics.SelectorWidth.Value, rowHeight));
+            SpaceBeforeNext();
+            ImGui.Dummy(new Vector2(metrics.SelectorWidth!.Value, rowHeight));
             drewItem = true;
         }
 
-        if (!showPenButton)
-            return;
+        if (showPenButton && editOnRight)
+        {
+            SpaceBeforeNext();
+            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth, rowHeight);
+            drewItem = true;
+        }
 
-        if (drewItem)
-            ImGui.SameLine(0, metrics.ItemSpacing);
-        DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth, rowHeight);
+        if (showCollapseButton && collapseOnRight)
+        {
+            SpaceBeforeNext();
+            DrawCollapseButton(style, metrics.ActionButtonWidth, onCollapse);
+        }
     }
+
+    private static bool ShouldPadForRightAlign(
+        PageBarMetrics metrics,
+        bool showPenButton,
+        bool showCollapseButton,
+        bool editOnRight,
+        bool collapseOnRight) =>
+        metrics.SelectorWidth is > 0f
+        && ((showPenButton && editOnRight) || (showCollapseButton && collapseOnRight));
 
     private static void DrawCollapseButton(PanelUiStyleConfig style, float actionButtonWidth, Action? onCollapse)
     {
@@ -159,7 +185,7 @@ internal static class PageSelectorBar
         var displayName = pages[selectedPage].DisplayName;
 
         var clicked = ImGui.Button($"{displayName}##eqpPageSelector", size);
-        if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked) && (Config.ShowPageSelectorPopup ?? true))
+        if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked) && Config.ShowPageSelectorPopup)
             ImGui.OpenPopup(PagePopupId);
 
         if (ImGui.IsItemHovered() && Config.SwitchPageOnPageNameWheel)

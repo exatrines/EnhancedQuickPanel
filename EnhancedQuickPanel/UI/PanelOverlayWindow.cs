@@ -186,7 +186,7 @@ public sealed class PanelOverlayWindow : Window
     private void ToggleEditMode()
     {
         if (Config.IsCollapsed && !_isEditingPageName)
-            Config.IsCollapsed = false;
+            SetCollapsed(false);
 
         _isEditingPageName = !_isEditingPageName;
         RequestCommit(_editingAtDrawStart);
@@ -196,7 +196,7 @@ public sealed class PanelOverlayWindow : Window
     {
         if (Config.IsCollapsed)
         {
-            Config.IsCollapsed = false;
+            SetCollapsed(false);
             RequestCommit(_editingAtDrawStart);
             return;
         }
@@ -204,8 +204,22 @@ public sealed class PanelOverlayWindow : Window
         if (_isEditingPageName)
             _isEditingPageName = false;
 
-        Config.IsCollapsed = true;
+        SetCollapsed(true);
         RequestCommit(_editingAtDrawStart);
+    }
+
+    private static void SetCollapsed(bool collapsed)
+    {
+        if (Config.IsCollapsed == collapsed)
+            return;
+
+        if (Config.CollapseButtonOnRight)
+        {
+            var delta = ComputeCollapseAnchorOffset();
+            Config.OverlayPosX += collapsed ? delta : -delta;
+        }
+
+        Config.IsCollapsed = collapsed;
     }
 
     private void RequestCommit(bool wasEditing)
@@ -252,7 +266,7 @@ public sealed class PanelOverlayWindow : Window
         if (!_isEditingPageName)
         {
             if (Config.IsCollapsed)
-                Config.IsCollapsed = false;
+                SetCollapsed(false);
             _isEditingPageName = true;
         }
 
@@ -467,6 +481,9 @@ public sealed class PanelOverlayWindow : Window
         return new Vector2(span, span + spacing + pageBarHeight);
     }
 
+    private static float ComputeCollapseAnchorOffset() =>
+        Math.Max(0f, Config.ComputeGridWidth() - ImGui.GetFrameHeight());
+
     private static float ComputeEditModeLeftOffset()
     {
         const float separatorWidth = 1f;
@@ -536,7 +553,7 @@ public sealed class PanelOverlayWindow : Window
             collapsed ? null : barWidth,
             showPenButton: Config.ShowEditButton && !collapsed,
             showCollapseButton: collapsed || Config.ShowCollapseButton,
-            showPageSelector: !collapsed && !Config.HidePageName,
+            showPageSelector: !collapsed && Config.ShowPageName,
             pagePopupXOffset: ComputeEditModeLeftOffset(),
             onCollapse: ToggleCollapse);
 
@@ -701,7 +718,7 @@ public sealed class PanelOverlayWindow : Window
             && (SlotDragDropHandler.ShouldHighlightDropTarget(page, index)
                 || SlotSwapDragHandler.ShouldHighlightSwapTarget(page, index));
 
-        var showEmptyBorder = Config.ShowEmptySlotBorder ?? true;
+        var showEmptyBorder = Config.ShowEmptySlotBorder;
         var drawBaseFrame = isEditMode || slot.IsConfigured || showEmptyBorder;
         if (drawBaseFrame)
             SlotChromeDrawer.DrawBaseFrame(drawList, topLeft, topLeft + size, isGrayedOut);
