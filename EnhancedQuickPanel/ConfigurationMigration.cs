@@ -79,6 +79,12 @@ internal static class ConfigurationMigration
 
     public static void NormalizeCurrentKeys(JObject obj)
     {
+        foreach (var property in obj.Properties().ToList())
+        {
+            if (property.Value.Type == JTokenType.Null)
+                property.Remove();
+        }
+
         if (obj["ShowPageName"] is null && obj["HidePageName"] is not null)
             obj["ShowPageName"] = !obj.Value<bool>("HidePageName");
 
