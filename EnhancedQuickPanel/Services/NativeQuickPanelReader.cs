@@ -1,4 +1,5 @@
-﻿using FFXIVClientStructs.FFXIV.Client.UI.Misc;
+﻿using EnhancedQuickPanel.Models;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -12,7 +13,7 @@ internal static unsafe class NativeQuickPanelReader
         if (!TryGetSlotRaw(page, index, out type, out commandId))
             return false;
 
-        return type != RaptureHotbarModule.HotbarSlotType.Empty && commandId != 0;
+        return HotbarCommand.IsAssigned(type, commandId);
     }
 
     public static bool TryGetSlotRaw(int page, int index, out RaptureHotbarModule.HotbarSlotType type, out uint commandId)

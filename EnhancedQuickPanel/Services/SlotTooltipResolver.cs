@@ -34,7 +34,7 @@ internal static unsafe class SlotTooltipResolver
         RaptureHotbarModule.HotbarSlotType type,
         uint commandId)
     {
-        if (type == RaptureHotbarModule.HotbarSlotType.Empty || commandId == 0)
+        if (!HotbarCommand.IsAssigned(type, commandId))
             return string.Empty;
 
         var fallback = FormatFallback(type, commandId);
@@ -85,9 +85,6 @@ internal static unsafe class SlotTooltipResolver
         RaptureHotbarModule.HotbarSlotType type,
         uint commandId)
     {
-        if (commandId == 0)
-            return string.Empty;
-
         var native = ResolveNative(type, commandId);
         if (!IsFallbackLabel(native, type, commandId)
             && !SeStringText.LooksLikeUnparsedSeString(native))

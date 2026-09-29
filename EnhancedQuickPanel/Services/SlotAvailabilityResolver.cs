@@ -8,15 +8,13 @@ internal static unsafe class SlotAvailabilityResolver
 {
     public static bool IsUsable(PanelSlot slot)
     {
-        if (slot.Kind != PanelSlotKind.Action || slot.CommandId == 0)
+        if (slot.Kind != PanelSlotKind.Action)
             return true;
 
         var type = (RaptureHotbarModule.HotbarSlotType)slot.CommandType;
-        if (type is RaptureHotbarModule.HotbarSlotType.Empty
-            or RaptureHotbarModule.HotbarSlotType.Macro)
-        {
+        if (type == RaptureHotbarModule.HotbarSlotType.Macro
+            || !HotbarCommand.IsAssigned(type, slot.CommandId))
             return true;
-        }
 
         return SlotRuntimeCache.Get(slot, ResolvedSlotIcon.Empty).IsUsable;
     }

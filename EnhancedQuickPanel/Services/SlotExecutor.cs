@@ -8,10 +8,7 @@ internal static class SlotExecutor
 {
     public static void ExecuteNative(RaptureHotbarModule.HotbarSlotType type, uint commandId)
     {
-        if (type == RaptureHotbarModule.HotbarSlotType.Empty)
-            return;
-
-        if (type != RaptureHotbarModule.HotbarSlotType.Macro && commandId == 0)
+        if (!HotbarCommand.IsAssigned(type, commandId))
             return;
 
         HotbarScratchSlot.TryExecute(type, commandId);

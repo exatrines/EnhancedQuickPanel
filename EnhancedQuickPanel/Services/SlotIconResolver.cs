@@ -59,7 +59,7 @@ internal static unsafe class SlotIconResolver
 
     private static ResolvedSlotIcon ResolveHotbarIcon(RaptureHotbarModule.HotbarSlotType type, uint commandId)
     {
-        if (type == RaptureHotbarModule.HotbarSlotType.Empty || commandId == 0)
+        if (!HotbarCommand.IsAssigned(type, commandId))
             return ResolvedSlotIcon.Empty;
         if (type == RaptureHotbarModule.HotbarSlotType.Macro)
             return ResolveMacroIconFromCommandId(commandId);

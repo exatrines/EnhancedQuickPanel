@@ -63,7 +63,7 @@ public sealed class PanelSlot
     public bool IsConfigured =>
         Kind switch
         {
-            PanelSlotKind.Action => CommandId != 0,
+            PanelSlotKind.Action => HotbarCommand.IsConfiguredAction(CommandType, CommandId),
             PanelSlotKind.Macro => MacroIndex < 100,
             PanelSlotKind.TextCommand => !string.IsNullOrWhiteSpace(TextBody),
             PanelSlotKind.Dalamud => DalamudShortcut != DalamudShortcutKind.None,

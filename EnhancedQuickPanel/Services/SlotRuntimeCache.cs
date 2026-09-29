@@ -34,17 +34,10 @@ internal static unsafe class SlotRuntimeCache
 
     public static SlotRuntimeState Get(PanelSlot slot, ResolvedSlotIcon icon)
     {
-        if (slot.Kind != PanelSlotKind.Action || slot.CommandId == 0)
+        if (slot.Kind != PanelSlotKind.Action)
             return SlotRuntimeState.Default;
 
-        var type = (RaptureHotbarModule.HotbarSlotType)slot.CommandType;
-        if (type is RaptureHotbarModule.HotbarSlotType.Empty
-            or RaptureHotbarModule.HotbarSlotType.Macro)
-        {
-            return SlotRuntimeState.Default;
-        }
-
-        return Get(type, slot.CommandId, icon);
+        return Get((RaptureHotbarModule.HotbarSlotType)slot.CommandType, slot.CommandId, icon);
     }
 
     public static SlotRuntimeState Get(
@@ -52,9 +45,8 @@ internal static unsafe class SlotRuntimeCache
         uint commandId,
         ResolvedSlotIcon icon)
     {
-        if (type is RaptureHotbarModule.HotbarSlotType.Empty
-            or RaptureHotbarModule.HotbarSlotType.Macro
-            || commandId == 0)
+        if (type == RaptureHotbarModule.HotbarSlotType.Macro
+            || !HotbarCommand.IsAssigned(type, commandId))
         {
             return SlotRuntimeState.Default;
         }
@@ -112,7 +104,7 @@ internal static unsafe class SlotRuntimeCache
             var scratch = hotbar->ScratchSlot;
             scratch.Set(uiModule, type, commandId);
 
-            if (scratch.CommandType == RaptureHotbarModule.HotbarSlotType.Empty || scratch.CommandId == 0)
+            if (!HotbarCommand.IsAssigned(scratch.CommandType, scratch.CommandId))
             {
                 var empty = new SlotRuntimeState(false, SlotCooldownInfo.None, 0, false, 0);
                 sticky = new StickyRuntime(now, false, default, 0, empty);
@@ -120,8 +112,7 @@ internal static unsafe class SlotRuntimeCache
             }
 
             var appearance = SlotAvailabilityResolver.ResolveAppearance(scratch, hotbar);
-            var isUsable = appearance.SlotType != RaptureHotbarModule.HotbarSlotType.Empty
-                && appearance.ActionId != 0
+            var isUsable = HotbarCommand.IsAssigned(appearance.SlotType, appearance.ActionId)
                 && scratch.IsSlotUsable(appearance.SlotType, appearance.ActionId);
             var cooldown = SlotCooldownResolver.ResolveScratch(scratch);
             var quantity = InventorySlotHelper.IsItemSlotType(type)

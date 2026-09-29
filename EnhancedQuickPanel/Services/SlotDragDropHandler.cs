@@ -285,7 +285,7 @@ internal static unsafe class SlotDragDropHandler
         }
 
         var (initialType, initialId) = MapDragToHotbar(snapshot);
-        if (initialType == RaptureHotbarModule.HotbarSlotType.Empty || initialId == 0)
+        if (!HotbarCommand.IsAssigned(initialType, initialId))
             return false;
 
         description = FormatGrabDescription("payload-mapped", initialType, initialId);
@@ -383,7 +383,7 @@ internal static unsafe class SlotDragDropHandler
             return false;
 
         var (initialType, initialId) = MapDragToHotbar(snapshot);
-        if (initialType == RaptureHotbarModule.HotbarSlotType.Empty || initialId == 0)
+        if (!HotbarCommand.IsAssigned(initialType, initialId))
             return false;
 
         try
@@ -393,8 +393,14 @@ internal static unsafe class SlotDragDropHandler
 
             var resolvedType = scratch.CommandType;
             var resolvedId = scratch.CommandId;
-            if (resolvedType == RaptureHotbarModule.HotbarSlotType.Empty || resolvedId == 0)
-                return false;
+            if (!HotbarCommand.IsAssigned(resolvedType, resolvedId))
+            {
+                if (!HotbarCommand.AllowsZeroCommandType(initialType))
+                    return false;
+
+                resolvedType = initialType;
+                resolvedId = initialId;
+            }
 
             if (InventorySlotHelper.TryResolveInventoryLinkedCommand(resolvedType, resolvedId, out var itemType, out var itemId))
             {
@@ -652,7 +658,7 @@ internal static unsafe class SlotDragDropHandler
 
         type = sourceSlot->CommandType;
         commandId = sourceSlot->CommandId;
-        return type != RaptureHotbarModule.HotbarSlotType.Empty && commandId != 0;
+        return HotbarCommand.IsAssigned(type, commandId);
     }
 
     private static bool IsActionBarDragType(DragDropType dragType) =>

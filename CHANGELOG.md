@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.13.0] - 2026-09-29
+
+### Fixed
+
+- Dropping the first gear set onto a slot now works. Index 0 is valid for gear sets, markers, and field markers
+
 ## [1.0.12.0] - 2026-09-27
 
 ### Fixed
@@ -133,7 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.12.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.13.0...HEAD
+[1.0.13.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.12.0...v1.0.13.0
 [1.0.12.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.11.0...v1.0.12.0
 [1.0.11.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.10.0...v1.0.11.0
 [1.0.10.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.9.0...v1.0.10.0

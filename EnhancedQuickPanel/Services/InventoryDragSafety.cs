@@ -1,4 +1,5 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game;
+﻿using EnhancedQuickPanel.Models;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.Services;
@@ -98,7 +99,7 @@ internal static unsafe class InventoryDragSafety
             var scratch = hotbar->ScratchSlot;
             savedType = scratch.CommandType;
             savedCommandId = scratch.CommandId;
-            shouldRestore = savedType != RaptureHotbarModule.HotbarSlotType.Empty && savedCommandId != 0;
+            shouldRestore = HotbarCommand.IsAssigned(savedType, savedCommandId);
 
             result = action();
         }
