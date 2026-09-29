@@ -36,7 +36,7 @@ internal static class PluginShortcuts
         string.Equals(name, PluginServices.PluginInterface.InternalName, StringComparison.Ordinal);
 
     public static IExposedPlugin? Find(PanelSlot slot) =>
-        FindEntry(slot.PluginInternalName, slot.PluginWorkingPluginId)?.Plugin;
+        ResolveSlot(slot)?.Plugin;
 
     public static PluginShortcutVisual ResolveVisual(PanelSlot slot)
     {
@@ -135,7 +135,7 @@ internal static class PluginShortcuts
 
     public static bool IsSelected(InstalledPluginEntry entry, PanelSlot slot)
     {
-        var resolved = FindEntry(slot.PluginInternalName, slot.PluginWorkingPluginId);
+        var resolved = ResolveSlot(slot);
         if (resolved == null)
             return false;
         if (SameWorkingId(entry.WorkingId, resolved.Value.WorkingId))
@@ -195,16 +195,8 @@ internal static class PluginShortcuts
         return cachedPicker;
     }
 
-    private static void BindResolvedWorkingId(PanelSlot slot)
-    {
-        if (HasWorkingId(slot.PluginWorkingPluginId))
-            return;
-        var entry = FindEntry(slot.PluginInternalName, string.Empty);
-        if (entry == null || !HasWorkingId(entry.Value.WorkingId))
-            return;
-        slot.PluginWorkingPluginId = entry.Value.WorkingId;
-        Config.Save();
-    }
+    private static void BindResolvedWorkingId(PanelSlot slot) =>
+        ResolveSlot(slot);
 
     public static bool TryGetIcon(PanelSlot slot, out IDalamudTextureWrap texture)
     {
@@ -213,7 +205,7 @@ internal static class PluginShortcuts
             return false;
         if (string.IsNullOrWhiteSpace(slot.PluginInternalName))
             return false;
-        var entry = FindEntry(slot.PluginInternalName, slot.PluginWorkingPluginId);
+        var entry = ResolveSlot(slot);
         return TryGetIcon(
             entry?.Plugin,
             slot.PluginInternalName,
@@ -255,35 +247,34 @@ internal static class PluginShortcuts
         return Path.Combine(directory, "images", "icon.png");
     }
 
+    private static InstalledPluginEntry? ResolveSlot(PanelSlot slot)
+    {
+        var entry = FindEntry(slot.PluginInternalName, slot.PluginWorkingPluginId);
+        if (entry != null)
+            TryHealWorkingId(slot, entry.Value);
+        return entry;
+    }
+
+    private static void TryHealWorkingId(PanelSlot slot, InstalledPluginEntry entry)
+    {
+        if (!HasWorkingId(entry.WorkingId))
+            return;
+        if (SameWorkingId(slot.PluginWorkingPluginId, entry.WorkingId))
+            return;
+        slot.PluginWorkingPluginId = entry.WorkingId;
+        Config.Save();
+    }
+
     internal static object? FindLocal(string internalName, string workingPluginId = "")
     {
         EnsureFrameCache();
-        if (HasWorkingId(workingPluginId))
-        {
-            foreach (var local in cachedLocals)
-            {
-                if (SameWorkingId(ReadWorkingId(local), workingPluginId))
-                    return local;
-            }
-
-            return null;
-        }
-
-        if (string.IsNullOrWhiteSpace(internalName))
-            return null;
-
-        object? first = null;
-        object? loaded = null;
-        foreach (var local in cachedLocals)
-        {
-            if (!string.Equals(ReadLocalInternalName(local), internalName, StringComparison.Ordinal))
-                continue;
-            first ??= local;
-            if (loaded == null && IsLocalLoaded(local))
-                loaded = local;
-        }
-
-        return loaded ?? first;
+        var index = ResolveUniqueIndex(
+            internalName,
+            workingPluginId,
+            cachedLocals.Count,
+            i => ReadWorkingId(cachedLocals[i]),
+            i => ReadLocalInternalName(cachedLocals[i]));
+        return index >= 0 ? cachedLocals[index] : null;
     }
 
     internal static bool HasOtherLoadedInstance(object local)
@@ -430,33 +421,45 @@ internal static class PluginShortcuts
     private static InstalledPluginEntry? FindEntry(string internalName, string workingPluginId)
     {
         var installed = ListInstalled();
+        var index = ResolveUniqueIndex(
+            internalName,
+            workingPluginId,
+            installed.Count,
+            i => installed[i].WorkingId,
+            i => installed[i].Plugin.InternalName);
+        return index >= 0 ? installed[index] : null;
+    }
+
+    private static int ResolveUniqueIndex(
+        string internalName,
+        string workingPluginId,
+        int count,
+        Func<int, string> workingIdAt,
+        Func<int, string> internalNameAt)
+    {
         if (HasWorkingId(workingPluginId))
         {
-            for (var i = 0; i < installed.Count; i++)
+            for (var i = 0; i < count; i++)
             {
-                if (SameWorkingId(installed[i].WorkingId, workingPluginId))
-                    return installed[i];
+                if (SameWorkingId(workingIdAt(i), workingPluginId))
+                    return i;
             }
-
-            return null;
         }
 
         if (string.IsNullOrWhiteSpace(internalName))
-            return null;
+            return -1;
 
-        InstalledPluginEntry? first = null;
-        InstalledPluginEntry? loaded = null;
-        for (var i = 0; i < installed.Count; i++)
+        var found = -1;
+        for (var i = 0; i < count; i++)
         {
-            var entry = installed[i];
-            if (!string.Equals(entry.Plugin.InternalName, internalName, StringComparison.Ordinal))
+            if (!string.Equals(internalNameAt(i), internalName, StringComparison.Ordinal))
                 continue;
-            first ??= entry;
-            if (loaded == null && entry.Plugin.IsLoaded)
-                loaded = entry;
+            if (found >= 0)
+                return -1;
+            found = i;
         }
 
-        return loaded ?? first;
+        return found;
     }
 
     private static string ReadWorkingId(object local)

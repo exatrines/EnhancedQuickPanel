@@ -85,6 +85,9 @@ internal static class PanelPagePreview
         if (overlay.ShowMacroIndicator)
             DrawMacroIndicator(drawList, topLeft, bottomRight);
 
+        if (pluginVisual == PluginShortcutVisual.Missing)
+            SlotChromeDrawer.DrawUnavailableMark(drawList, topLeft, bottomRight);
+
         if (overlay.ShowActionCharges)
             DrawCornerText(drawList, topLeft, bottomRight, overlay.ActionCharges.ToString(), Config.ChargeLabelStyle);
         else if (overlay.ShowQuantity)

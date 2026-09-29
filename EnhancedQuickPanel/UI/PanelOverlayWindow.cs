@@ -748,6 +748,8 @@ public sealed class PanelOverlayWindow : Window
             SlotCooldownRenderer.Draw(drawList, topLeft, topLeft + size, cooldown);
         if (pluginVisual == PluginShortcutVisual.Processing)
             DrawPluginProcessingOverlay(drawList, topLeft, topLeft + size);
+        if (pluginVisual == PluginShortcutVisual.Missing)
+            SlotChromeDrawer.DrawUnavailableMark(drawList, topLeft, topLeft + size);
 
         if (drewIcon && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             SlotChromeDrawer.DrawHoverFrame(drawList, topLeft, topLeft + size, isGrayedOut: isGrayedOut);

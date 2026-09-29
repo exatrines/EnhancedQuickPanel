@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.14.0] - 2026-09-30
+
+### Fixed
+
+- Reinstalling a plugin no longer breaks its shortcut when only one copy of that plugin is installed
+- Uninstalled plugin slots show a red X on the icon
+
 ## [1.0.13.0] - 2026-09-29
 
 ### Fixed
@@ -139,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.13.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.14.0...HEAD
+[1.0.14.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.13.0...v1.0.14.0
 [1.0.13.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.12.0...v1.0.13.0
 [1.0.12.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.11.0...v1.0.12.0
 [1.0.11.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.10.0...v1.0.11.0

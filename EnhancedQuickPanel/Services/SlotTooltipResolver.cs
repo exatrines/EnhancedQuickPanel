@@ -101,7 +101,10 @@ internal static unsafe class SlotTooltipResolver
             : PluginShortcuts.Find(slot)?.Name ?? slot.PluginInternalName;
         if (PluginShortcuts.IsIconDownloading(slot.PluginInternalName))
             return $"{name}\n{T("shortcut.iconDownloadingHint")}";
-        if (PluginShortcuts.ResolveVisual(slot) != PluginShortcutVisual.Disabled)
+        var visual = PluginShortcuts.ResolveVisual(slot);
+        if (visual == PluginShortcutVisual.Missing)
+            return string.IsNullOrWhiteSpace(name) ? T("shortcut.unavailable") : $"{name}\n{T("shortcut.unavailable")}";
+        if (visual != PluginShortcutVisual.Disabled)
             return name;
         return T("slot.tooltip.pluginDisabled", name);
     }

@@ -45,6 +45,23 @@ internal static class SlotChromeDrawer
         drawList.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(color), rounding);
     }
 
+    public static void DrawUnavailableMark(ImDrawListPtr drawList, Vector2 min, Vector2 max)
+    {
+        var size = max - min;
+        var inset = Math.Clamp(size.X * 0.22f, 4f, 10f);
+        var thickness = Math.Clamp(size.X * 0.1f, 2.5f, 4.5f);
+        var a = min + new Vector2(inset, inset);
+        var b = max - new Vector2(inset, inset);
+        var c = new Vector2(max.X - inset, min.Y + inset);
+        var d = new Vector2(min.X + inset, max.Y - inset);
+        var outline = ImGui.ColorConvertFloat4ToU32(new Vector4(0f, 0f, 0f, 0.85f));
+        var mark = ImGui.ColorConvertFloat4ToU32(new Vector4(0.92f, 0.22f, 0.22f, 0.95f));
+        drawList.AddLine(a, b, outline, thickness + 2f);
+        drawList.AddLine(c, d, outline, thickness + 2f);
+        drawList.AddLine(a, b, mark, thickness);
+        drawList.AddLine(c, d, mark, thickness);
+    }
+
     public static void DrawIconFrame(
         ImDrawListPtr drawList,
         Vector2 min,
