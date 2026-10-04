@@ -1,9 +1,8 @@
-﻿using Dalamud.Interface;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
-using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 
 namespace EnhancedQuickPanel.UI;
 
@@ -12,6 +11,7 @@ public sealed class PanelOverlayWindow : Window
 {
     private const float WindowBorderRounding = 5f;
     private const float EditColumnGap = 8f;
+    private const float EditSeparatorWidth = 1f;
     private static readonly Vector2 CornerCountPositionOffset = new(3f, 4f);
 
     private const ImGuiWindowFlags PanelWindowFlags =
@@ -31,12 +31,6 @@ public sealed class PanelOverlayWindow : Window
     private bool _pendingCommit;
     private bool _editingAtDrawStart;
     private ImRaii.ColorDisposable? _windowBgScope;
-    private bool _isDraggingWindow;
-    private Vector2 _dragMouseStart;
-    private Vector2 _dragWindowStart;
-    private static bool _chromeDragRequested;
-    private static Vector2 _pressPos;
-    private static bool _pressMoved;
     private static bool _pluginRightClickConsumed;
     private static bool _slotContextClickedThisFrame;
     private static PanelSlot? _rightPressedSlot;
@@ -54,7 +48,9 @@ public sealed class PanelOverlayWindow : Window
 
     public override void PreDraw()
     {
-        ImGui.SetNextWindowPos(new Vector2(Config.OverlayPosX, Config.OverlayPosY), ImGuiCond.Always);
+        ImGui.SetNextWindowPos(
+            new Vector2(Config.OverlayPosX - ComputeEditModeLeftOffset(), Config.OverlayPosY),
+            ImGuiCond.Always);
         var windowBg = _isEditingPageName ? Config.EditModeWindowBgColor : Config.WindowBgColor;
         _windowBgScope = ImRaii.PushColor(ImGuiCol.WindowBg, windowBg);
         var windowRounding = WindowBorderRounding;
@@ -98,7 +94,7 @@ public sealed class PanelOverlayWindow : Window
                 DrawNormalLayout();
 
             DrawWindowBorder();
-            HandleWindowDrag();
+            OverlayDrag.Handle();
             PanelContextMenu.Draw(
                 _pluginRightClickConsumed,
                 _slotContextClickedThisFrame,
@@ -233,7 +229,6 @@ public sealed class PanelOverlayWindow : Window
     {
         if (wasEditing && !_isEditingPageName)
         {
-            Config.OverlayPosX += ComputeEditModeLeftOffset();
             _slotEditorExpanded = false;
             _selectedSlotIndex = -1;
             _selectionPage = -1;
@@ -241,7 +236,6 @@ public sealed class PanelOverlayWindow : Window
         }
         else if (!wasEditing && _isEditingPageName)
         {
-            Config.OverlayPosX -= ComputeEditModeLeftOffset();
             if (!HasValidEditSelection())
                 SelectFirstSlotForEditMode();
         }
@@ -328,97 +322,6 @@ public sealed class PanelOverlayWindow : Window
         drawList.PopClipRect();
     }
 
-    private void HandleWindowDrag()
-    {
-        if (SlotDragDropHandler.IsGameDragActive
-            || SlotSwapDragHandler.IsInternalDragActive
-            || PageReorderDragHandler.IsDragging)
-        {
-            _chromeDragRequested = false;
-            if (_isDraggingWindow && ImGui.IsMouseReleased(ImGuiMouseButton.Left))
-            {
-                _isDraggingWindow = false;
-                Config.Save();
-            }
-
-            return;
-        }
-
-        var io = ImGui.GetIO();
-
-        if (_chromeDragRequested)
-        {
-            _chromeDragRequested = false;
-            if (!_isDraggingWindow && ImGui.IsMouseDown(ImGuiMouseButton.Left))
-            {
-                _isDraggingWindow = true;
-                _dragMouseStart = io.MousePos;
-                _dragWindowStart = new Vector2(Config.OverlayPosX, Config.OverlayPosY);
-            }
-        }
-
-        if (ImGui.IsMouseReleased(ImGuiMouseButton.Left))
-        {
-            if (_isDraggingWindow)
-                Config.Save();
-
-            _isDraggingWindow = false;
-        }
-
-        if (_isDraggingWindow)
-        {
-            if (ImGui.IsMouseDown(ImGuiMouseButton.Left))
-            {
-                var delta = io.MousePos - _dragMouseStart;
-                Config.OverlayPosX = _dragWindowStart.X + delta.X;
-                Config.OverlayPosY = _dragWindowStart.Y + delta.Y;
-            }
-
-            return;
-        }
-
-        if (!ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows))
-            return;
-
-        if (ImGui.IsAnyItemHovered() || ImGui.IsAnyItemActive())
-            return;
-
-        if (ImGui.IsPopupOpen("", ImGuiPopupFlags.AnyPopupId))
-            return;
-
-        if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-            return;
-
-        _isDraggingWindow = true;
-        _dragMouseStart = io.MousePos;
-        _dragWindowStart = new Vector2(Config.OverlayPosX, Config.OverlayPosY);
-    }
-
-    internal static void RequestChromeDrag() => _chromeDragRequested = true;
-
-    internal static bool ConsumeClickWithoutDrag(bool imguiClicked)
-    {
-        var io = ImGui.GetIO();
-        if (ImGui.IsItemActivated())
-        {
-            _pressPos = io.MousePos;
-            _pressMoved = false;
-        }
-
-        if (ImGui.IsItemActive() && !_pressMoved)
-        {
-            var delta = io.MousePos - _pressPos;
-            var threshold = Math.Max(4f, io.MouseDragThreshold);
-            if (delta.LengthSquared() >= threshold * threshold)
-            {
-                _pressMoved = true;
-                RequestChromeDrag();
-            }
-        }
-
-        return imguiClicked && !_pressMoved;
-    }
-
     private void DrawNormalLayout()
     {
         DrawLayoutWithPageBar(isEditMode: false);
@@ -429,25 +332,48 @@ public sealed class PanelOverlayWindow : Window
         var mainSize = ComputeMainContentSize();
         var sideSize = ComputeSidePanelSize();
         var separatorHeight = Math.Max(mainSize.Y, sideSize.Y);
+        var slotWidth = SlotEditorColumnWidth(sideSize.X);
+        var drewColumn = false;
 
-        ImGui.BeginGroup();
-        if (DrawPageListPanel(sideSize.X, sideSize.Y))
-            OnCurrentPageRemoved();
-        ImGui.EndGroup();
+        void Place(Action draw)
+        {
+            if (drewColumn)
+            {
+                ImGui.SameLine(0f, EditColumnGap);
+                DrawVerticalSeparator(separatorHeight);
+                ImGui.SameLine(0f, EditColumnGap);
+            }
 
-        ImGui.SameLine(0f, EditColumnGap);
-        DrawVerticalSeparator(separatorHeight);
-        ImGui.SameLine(0f, EditColumnGap);
+            draw();
+            drewColumn = true;
+        }
 
-        DrawMainContentGroup(isEditMode: true);
+        if (!Config.PageEditorOnRight)
+            Place(DrawPageColumn);
+        if (!Config.SlotEditorOnRight)
+            Place(DrawSlotColumn);
 
-        ImGui.SameLine(0f, EditColumnGap);
-        DrawVerticalSeparator(separatorHeight);
-        ImGui.SameLine(0f, EditColumnGap);
+        Place(() => DrawMainContentGroup(isEditMode: true));
 
-        ImGui.BeginGroup();
-        DrawSlotEditorPanel(sideSize.X * (_slotEditorExpanded ? 2f : 1f), sideSize.Y);
-        ImGui.EndGroup();
+        if (Config.SlotEditorOnRight)
+            Place(DrawSlotColumn);
+        if (Config.PageEditorOnRight)
+            Place(DrawPageColumn);
+
+        void DrawPageColumn()
+        {
+            ImGui.BeginGroup();
+            if (DrawPageListPanel(sideSize.X, sideSize.Y))
+                OnCurrentPageRemoved();
+            ImGui.EndGroup();
+        }
+
+        void DrawSlotColumn()
+        {
+            ImGui.BeginGroup();
+            DrawSlotEditorPanel(slotWidth, sideSize.Y);
+            ImGui.EndGroup();
+        }
     }
 
     private void OnCurrentPageRemoved()
@@ -484,12 +410,25 @@ public sealed class PanelOverlayWindow : Window
     private static float ComputeCollapseAnchorOffset() =>
         Math.Max(0f, Config.ComputeGridWidth() - ImGui.GetFrameHeight());
 
-    private static float ComputeEditModeLeftOffset()
+    private float ComputeEditModeLeftOffset()
     {
-        const float separatorWidth = 1f;
-        var columnWidth = ComputeSidePanelSize().X;
-        return columnWidth + EditColumnGap + separatorWidth + EditColumnGap;
+        if (!_isEditingPageName)
+            return 0f;
+
+        var sideWidth = ComputeSidePanelSize().X;
+        var left = 0f;
+        if (!Config.PageEditorOnRight)
+            left += EditColumnStride(sideWidth);
+        if (!Config.SlotEditorOnRight)
+            left += EditColumnStride(SlotEditorColumnWidth(sideWidth));
+        return left;
     }
+
+    private float SlotEditorColumnWidth(float sideWidth) =>
+        sideWidth * (_slotEditorExpanded ? 2f : 1f);
+
+    private static float EditColumnStride(float width) =>
+        width + EditColumnGap + EditSeparatorWidth + EditColumnGap;
 
     private static void DrawVerticalSeparator(float height)
     {
@@ -501,7 +440,7 @@ public sealed class PanelOverlayWindow : Window
             new Vector2(x, topY),
             new Vector2(x, bottomY),
             ImGui.GetColorU32(ImGuiCol.Separator));
-        ImGui.Dummy(new Vector2(1f, separatorHeight));
+        ImGui.Dummy(new Vector2(EditSeparatorWidth, separatorHeight));
     }
 
     private bool DrawPageListPanel(float width, float height)
@@ -553,6 +492,7 @@ public sealed class PanelOverlayWindow : Window
             collapsed ? null : barWidth,
             showPenButton: Config.ShowEditButton && !collapsed,
             showCollapseButton: collapsed || Config.ShowCollapseButton,
+            showLockButton: Config.ShowLockButton && !collapsed,
             showPageSelector: !collapsed && Config.ShowPageName,
             pagePopupXOffset: ComputeEditModeLeftOffset(),
             onCollapse: ToggleCollapse);
@@ -638,9 +578,6 @@ public sealed class PanelOverlayWindow : Window
         var cooldown = !isEditMode && slot.IsConfigured && slot.Kind == PanelSlotKind.Action
             ? runtime.Cooldown
             : SlotCooldownInfo.None;
-        RaptureHotbarModule.HotbarSlotType? slotType = slot.Kind == PanelSlotKind.Action
-            ? (RaptureHotbarModule.HotbarSlotType)slot.CommandType
-            : null;
 
         DrawSlotButton(
             slot,
@@ -649,7 +586,6 @@ public sealed class PanelOverlayWindow : Window
             cooldown,
             page,
             index,
-            slotType,
             isEditMode,
             isSelected,
             () =>
@@ -671,7 +607,6 @@ public sealed class PanelOverlayWindow : Window
         SlotCooldownInfo cooldown,
         int page,
         int index,
-        RaptureHotbarModule.HotbarSlotType? slotType,
         bool isEditMode,
         bool isSelected,
         Action onClick,
@@ -683,7 +618,7 @@ public sealed class PanelOverlayWindow : Window
         ImGui.PushID(index);
         var topLeft = ImGui.GetCursorScreenPos();
         var clicked = ImGui.InvisibleButton("##eqpIcon", size);
-        var clickWithoutDrag = !isEditMode && ConsumeClickWithoutDrag(clicked);
+        var clickWithoutDrag = !isEditMode && OverlayDrag.ConsumeClickWithoutDrag(clicked);
         ImGui.PopID();
 
         var hovered = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
@@ -726,7 +661,7 @@ public sealed class PanelOverlayWindow : Window
         var drewIcon = PluginShortcuts.TryGetIcon(slot, out var pluginTexture)
             && SafeTextureDraw.TryAddImage(drawList, pluginTexture, topLeft, topLeft + size, iconTint);
         if (!drewIcon)
-            drewIcon = TryDrawSlotIcon(drawList, topLeft, size, icon, slotType, iconTint);
+            drewIcon = TryDrawSlotIcon(drawList, topLeft, size, icon, iconTint);
         if (!drewIcon)
             drewIcon = DalamudShortcuts.TryDrawIcon(drawList, topLeft, topLeft + size, slot, iconTint);
         if (!drewIcon && slot.Kind == PanelSlotKind.Plugin)
@@ -744,6 +679,8 @@ public sealed class PanelOverlayWindow : Window
         if (drewIcon)
             SlotChromeDrawer.DrawIconFrame(drawList, topLeft, topLeft + size, isGrayedOut);
 
+        SlotCornerBadgeDrawer.Draw(drawList, topLeft, topLeft + size, slot, isGrayedOut);
+
         if (drewIcon && cooldown.IsActive)
             SlotCooldownRenderer.Draw(drawList, topLeft, topLeft + size, cooldown);
         if (pluginVisual == PluginShortcutVisual.Processing)
@@ -753,6 +690,8 @@ public sealed class PanelOverlayWindow : Window
 
         if (drewIcon && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             SlotChromeDrawer.DrawHoverFrame(drawList, topLeft, topLeft + size, isGrayedOut: isGrayedOut);
+
+        SlotOutlineDrawer.Draw(drawList, topLeft, topLeft + size, slot, isGrayedOut);
 
         if (showSelected)
         {
@@ -855,7 +794,6 @@ public sealed class PanelOverlayWindow : Window
         Vector2 topLeft,
         Vector2 size,
         ResolvedSlotIcon icon,
-        RaptureHotbarModule.HotbarSlotType? slotType,
         uint iconTint)
     {
         if (!icon.IsValid)

@@ -610,10 +610,6 @@ internal static class SlotIconPicker
 
     public static void DrawIconButton(PanelSlot slot, Vector2 size, bool interactive = true)
     {
-        var previewIcon = slot.IconId != 0
-            ? new ResolvedSlotIcon(slot.IconId, false)
-            : SlotIconResolver.ResolveIcon(slot);
-
         if (interactive)
         {
             ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(ImGuiCol.FrameBg));
@@ -627,11 +623,24 @@ internal static class SlotIconPicker
                 ImGui.Button("##eqpSlotIconPick", size);
         }
 
-        var min = ImGui.GetItemRectMin();
-        var max = ImGui.GetItemRectMax();
+        PaintSlotFace(slot, ImGui.GetItemRectMin(), ImGui.GetItemRectMax());
+    }
+
+    public static void DrawPreview(PanelSlot slot, Vector2 size)
+    {
+        ImGui.Dummy(size);
+        PaintSlotFace(slot, ImGui.GetItemRectMin(), ImGui.GetItemRectMax());
+    }
+
+    private static void PaintSlotFace(PanelSlot slot, Vector2 min, Vector2 max)
+    {
+        var previewIcon = slot.IconId != 0
+            ? new ResolvedSlotIcon(slot.IconId, false)
+            : SlotIconResolver.ResolveIcon(slot);
         var drawList = ImGui.GetWindowDrawList();
         drawList.AddRect(min, max, ImGui.GetColorU32(ImGuiCol.Border), 4f);
         DrawSlotIconPreview(drawList, min, max, slot, previewIcon);
+        SlotOutlineDrawer.Draw(drawList, min, max, slot, isGrayedOut: false);
     }
 
     private static void DrawSlotIconPreview(
@@ -641,23 +650,21 @@ internal static class SlotIconPicker
         PanelSlot slot,
         ResolvedSlotIcon previewIcon)
     {
-        if (PluginShortcuts.TryGetIcon(slot, out var pluginTexture)
-            && SafeTextureDraw.TryAddImage(drawList, pluginTexture, min, max, uint.MaxValue))
-            return;
-
-        if (previewIcon.IsValid)
+        if (!PluginShortcuts.TryGetIcon(slot, out var pluginTexture)
+            || !SafeTextureDraw.TryAddImage(drawList, pluginTexture, min, max, uint.MaxValue))
         {
-            DrawIconInRect(previewIcon.IconId, min, max);
-            return;
+            if (previewIcon.IsValid)
+                DrawIconInRect(previewIcon.IconId, min, max);
+            else if (!DalamudShortcuts.TryDrawIcon(drawList, min, max, slot, ImGui.GetColorU32(ImGuiCol.Text)))
+            {
+                var text = "?";
+                var textSize = ImGui.CalcTextSize(text);
+                var pos = min + (max - min - textSize) * 0.5f;
+                drawList.AddText(pos, ImGui.GetColorU32(ImGuiCol.TextDisabled), text);
+            }
         }
 
-        if (DalamudShortcuts.TryDrawIcon(drawList, min, max, slot, ImGui.GetColorU32(ImGuiCol.Text)))
-            return;
-
-        var text = "?";
-        var textSize = ImGui.CalcTextSize(text);
-        var pos = min + (max - min - textSize) * 0.5f;
-        drawList.AddText(pos, ImGui.GetColorU32(ImGuiCol.TextDisabled), text);
+        SlotCornerBadgeDrawer.Draw(drawList, min, max, slot, isGrayedOut: false);
     }
 
     private static void DrawIconInRect(uint iconId, Vector2 min, Vector2 max)

@@ -4,7 +4,7 @@ using EnhancedQuickPanel.Models;
 
 namespace EnhancedQuickPanel.UI;
 
-/// <summary>Draws the overlay's page-name bar and handles page switching via the click popup and mouse wheel.</summary>
+/// <summary>Draws the overlay page bar: name, header buttons, and page switching.</summary>
 internal static class PageSelectorBar
 {
     private const string PagePopupId = "##eqpPageSelectorPopup";
@@ -37,6 +37,7 @@ internal static class PageSelectorBar
         float? barWidth = null,
         bool showPenButton = true,
         bool showCollapseButton = false,
+        bool showLockButton = false,
         bool showPageSelector = true,
         float pagePopupXOffset = 0f,
         Action? onCollapse = null)
@@ -47,7 +48,7 @@ internal static class PageSelectorBar
 
         selectedPage = Math.Clamp(selectedPage, 0, pages.Count - 1);
 
-        var metrics = CreateMetrics(barWidth, showPenButton, showCollapseButton, showPageSelector);
+        var metrics = CreateMetrics(barWidth, showPenButton, showCollapseButton, showLockButton, showPageSelector);
 
         using (new PanelUiButtonStyleScope(style))
             DrawSelectorRow(
@@ -58,6 +59,7 @@ internal static class PageSelectorBar
                 metrics,
                 showPenButton,
                 showCollapseButton,
+                showLockButton,
                 showPageSelector,
                 onCollapse);
 
@@ -72,11 +74,13 @@ internal static class PageSelectorBar
         float? barWidth,
         bool showPenButton,
         bool showCollapseButton,
+        bool showLockButton,
         bool showPageSelector)
     {
         var actionButtonWidth = ImGui.GetFrameHeight();
         var rowGap = ImGui.GetStyle().ItemSpacing.X;
-        var iconButtonCount = (showCollapseButton ? 1 : 0) + (showPenButton ? 1 : 0);
+        var iconButtonCount =
+            (showCollapseButton ? 1 : 0) + (showLockButton ? 1 : 0) + (showPenButton ? 1 : 0);
 
         if (!barWidth.HasValue)
             return new PageBarMetrics(null, showPageSelector ? null : 0f, actionButtonWidth, rowGap);
@@ -95,6 +99,7 @@ internal static class PageSelectorBar
         PageBarMetrics metrics,
         bool showPenButton,
         bool showCollapseButton,
+        bool showLockButton,
         bool showPageSelector,
         Action? onCollapse)
     {
@@ -102,6 +107,7 @@ internal static class PageSelectorBar
         var drewItem = false;
         var editOnRight = Config.EditButtonOnRight;
         var collapseOnRight = Config.CollapseButtonOnRight;
+        var lockOnRight = Config.LockButtonOnRight;
 
         void SpaceBeforeNext()
         {
@@ -116,10 +122,17 @@ internal static class PageSelectorBar
             drewItem = true;
         }
 
+        if (showLockButton && !lockOnRight)
+        {
+            SpaceBeforeNext();
+            DrawLockButton(style, metrics.ActionButtonWidth);
+            drewItem = true;
+        }
+
         if (showPenButton && !editOnRight)
         {
             SpaceBeforeNext();
-            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth, rowHeight);
+            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth);
             drewItem = true;
         }
 
@@ -132,17 +145,24 @@ internal static class PageSelectorBar
             DrawPageLabel(ref selectedPage, pages, selectorSize);
             drewItem = true;
         }
-        else if (ShouldPadForRightAlign(metrics, showPenButton, showCollapseButton, editOnRight, collapseOnRight))
+        else if (metrics.SelectorWidth is > 0f)
         {
             SpaceBeforeNext();
-            ImGui.Dummy(new Vector2(metrics.SelectorWidth!.Value, rowHeight));
+            DrawHiddenPageNameHitArea(new Vector2(metrics.SelectorWidth.Value, rowHeight));
             drewItem = true;
         }
 
         if (showPenButton && editOnRight)
         {
             SpaceBeforeNext();
-            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth, rowHeight);
+            DrawPenButton(ref isEditingPageName, style, metrics.ActionButtonWidth);
+            drewItem = true;
+        }
+
+        if (showLockButton && lockOnRight)
+        {
+            SpaceBeforeNext();
+            DrawLockButton(style, metrics.ActionButtonWidth);
             drewItem = true;
         }
 
@@ -153,15 +173,6 @@ internal static class PageSelectorBar
         }
     }
 
-    private static bool ShouldPadForRightAlign(
-        PageBarMetrics metrics,
-        bool showPenButton,
-        bool showCollapseButton,
-        bool editOnRight,
-        bool collapseOnRight) =>
-        metrics.SelectorWidth is > 0f
-        && ((showPenButton && editOnRight) || (showCollapseButton && collapseOnRight));
-
     private static void DrawCollapseButton(PanelUiStyleConfig style, float actionButtonWidth, Action? onCollapse)
     {
         var size = new Vector2(actionButtonWidth, actionButtonWidth);
@@ -171,10 +182,29 @@ internal static class PageSelectorBar
                 size,
                 style.TextColor,
                 style.TextHoverColor);
-        if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked))
+        if (OverlayDrag.ConsumeClickWithoutDrag(clicked))
             onCollapse?.Invoke();
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip(PanelCollapse.Label);
+    }
+
+    private static void DrawLockButton(PanelUiStyleConfig style, float actionButtonWidth)
+    {
+        var size = new Vector2(actionButtonWidth, actionButtonWidth);
+        var clicked = CenteredIconButton.Draw(
+                PanelLock.Icon,
+                "##eqpLock",
+                size,
+                style.TextColor,
+                style.TextHoverColor);
+        if (OverlayDrag.ConsumeClickWithoutDrag(clicked))
+            PanelLock.Toggle();
+    }
+
+    private static void DrawHiddenPageNameHitArea(Vector2 size)
+    {
+        var clicked = ImGui.InvisibleButton("##eqpPageBarDrag", size);
+        OverlayDrag.ConsumeClickWithoutDrag(clicked, alwaysMoveWindow: true);
     }
 
     private static void DrawPageLabel(
@@ -185,7 +215,7 @@ internal static class PageSelectorBar
         var displayName = pages[selectedPage].DisplayName;
 
         var clicked = ImGui.Button($"{displayName}##eqpPageSelector", size);
-        if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked) && Config.ShowPageSelectorPopup)
+        if (OverlayDrag.ConsumeClickWithoutDrag(clicked) && Config.ShowPageSelectorPopup)
             ImGui.OpenPopup(PagePopupId);
 
         if (ImGui.IsItemHovered() && Config.SwitchPageOnPageNameWheel)
@@ -195,8 +225,7 @@ internal static class PageSelectorBar
     private static void DrawPenButton(
         ref bool isEditingPageName,
         PanelUiStyleConfig style,
-        float actionButtonWidth,
-        float rowHeight)
+        float actionButtonWidth)
     {
         var size = new Vector2(actionButtonWidth, actionButtonWidth);
 
@@ -210,7 +239,7 @@ internal static class PageSelectorBar
                     size,
                     style.TextColor,
                     style.TextHoverColor);
-            if (PanelOverlayWindow.ConsumeClickWithoutDrag(clicked))
+            if (OverlayDrag.ConsumeClickWithoutDrag(clicked))
             {
                 isEditingPageName = !isEditingPageName;
                 if (!isEditingPageName)

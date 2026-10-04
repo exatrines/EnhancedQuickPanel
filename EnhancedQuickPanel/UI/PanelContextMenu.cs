@@ -357,6 +357,12 @@ internal static class PanelContextMenu
             rows.Add(new(T("contextMenu.edit"), FontAwesomeIcon.Pen, "##eqpContextEdit", toggleEdit, TrailingIcon: isEditing ? FontAwesomeIcon.Check : null));
         if (items.IsCollapseVisible)
             rows.Add(new(PanelCollapse.Label, PanelCollapse.Icon, "##eqpContextCollapse", toggleCollapse));
+        if (items.IsLockVisible)
+            rows.Add(new(
+                PanelLock.Label,
+                PanelLock.ActionIcon,
+                "##eqpContextLock",
+                PanelLock.Toggle));
         if (items.IsCloseVisible)
             rows.Add(new(T("contextMenu.close"), FontAwesomeIcon.Times, "##eqpContextClose", closeOverlay));
         return rows;
@@ -425,6 +431,18 @@ internal static class PanelContextMenu
         if (model.ShowInventory)
             rows.Add(new(T("slotMenu.showInventory"), FontAwesomeIcon.BoxOpen, "##eqpSlotInventory", () => TextCommandExecutor.Execute("/inventory")));
 
+        if (model.ShowRefreshIcon)
+        {
+            var downloading = model.IsPlugin && PluginShortcuts.IsIconDownloading(slot.PluginInternalName);
+            rows.Add(new(
+                T("slotMenu.refreshIcon"),
+                FontAwesomeIcon.Sync,
+                "##eqpSlotRefreshIcon",
+                () => RefreshSlotIcon(slot),
+                Enabled: !downloading,
+                DisabledTooltip: T("shortcut.iconDownloadingHint")));
+        }
+
         rows.Add(new(T("slotMenu.edit"), FontAwesomeIcon.Pen, "##eqpSlotEdit", () => editSlot(model.Page, model.Index)));
         rows.Add(new(
             T("slotMenu.delete"),
@@ -465,8 +483,17 @@ internal static class PanelContextMenu
             slot.Kind == PanelSlotKind.Macro && slot.IsConfigured,
             slot.Kind == PanelSlotKind.Action && slot.IsConfigured && !isItem,
             isItem,
-            isPlugin && !PluginShortcuts.IsSelf(slot.PluginInternalName));
+            isPlugin && !PluginShortcuts.IsSelf(slot.PluginInternalName),
+            isPlugin || slot.Kind == PanelSlotKind.Macro && slot.IsConfigured);
         return true;
+    }
+
+    private static void RefreshSlotIcon(PanelSlot slot)
+    {
+        if (slot.Kind == PanelSlotKind.Plugin)
+            PluginShortcuts.RefreshIcon(slot);
+        else if (slot.Kind == PanelSlotKind.Macro)
+            SlotIconResolver.InvalidateMacro(slot.MacroSet, slot.MacroIndex);
     }
 
     private readonly record struct MenuActionRow(
@@ -492,5 +519,6 @@ internal static class PanelContextMenu
         bool ShowMacros,
         bool ShowActions,
         bool ShowInventory,
-        bool ShowToggle);
+        bool ShowToggle,
+        bool ShowRefreshIcon);
 }

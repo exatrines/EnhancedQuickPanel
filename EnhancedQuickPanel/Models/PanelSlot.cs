@@ -1,4 +1,4 @@
-﻿namespace EnhancedQuickPanel.Models;
+namespace EnhancedQuickPanel.Models;
 
 public enum PanelSlotKind
 {
@@ -26,6 +26,14 @@ public enum PluginShortcutAction
     ConfigUi = 2,
     TextCommand = 3,
     ToggleEnabled = 5,
+}
+
+public enum SlotCorner : byte
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
 }
 
 public sealed class PanelSlot
@@ -59,6 +67,44 @@ public sealed class PanelSlot
     public string LeftClickCommand { get; set; } = string.Empty;
     public string RightClickCommand { get; set; } = string.Empty;
     public string MiddleClickCommand { get; set; } = string.Empty;
+
+    public ushort BadgeTopLeft { get; set; }
+
+    public ushort BadgeTopRight { get; set; }
+
+    public ushort BadgeBottomLeft { get; set; }
+
+    public ushort BadgeBottomRight { get; set; }
+
+    public bool BadgeUseCustomColor { get; set; }
+
+    public float BadgeColorRed { get; set; } = 1f;
+
+    public float BadgeColorGreen { get; set; } = 1f;
+
+    public float BadgeColorBlue { get; set; } = 1f;
+
+    public float BadgeColorAlpha { get; set; } = 1f;
+
+    public Vector4 BadgeColor => new(BadgeColorRed, BadgeColorGreen, BadgeColorBlue, BadgeColorAlpha);
+
+    public bool ShowOutline { get; set; }
+
+    public bool OutlineUseCustomColor { get; set; }
+
+    public float OutlineColorRed { get; set; } = 1f;
+
+    public float OutlineColorGreen { get; set; } = 1f;
+
+    public float OutlineColorBlue { get; set; } = 1f;
+
+    public float OutlineColorAlpha { get; set; } = 1f;
+
+    public Vector4 OutlineColor => new(OutlineColorRed, OutlineColorGreen, OutlineColorBlue, OutlineColorAlpha);
+
+    public bool OutlineUseCustomThickness { get; set; }
+
+    public float OutlineThickness { get; set; } = 2f;
 
     public bool IsConfigured =>
         Kind switch
@@ -107,6 +153,8 @@ public sealed class PanelSlot
         MacroIndex = 0;
         ResetPluginShortcut();
         ResetDalamudShortcut();
+        ClearCornerBadges();
+        ClearOutline();
     }
 
     public void SwapContentsWith(PanelSlot other)
@@ -120,7 +168,102 @@ public sealed class PanelSlot
         (Label, other.Label) = (other.Label, Label);
         (TextBody, other.TextBody) = (other.TextBody, TextBody);
         (DalamudShortcut, other.DalamudShortcut) = (other.DalamudShortcut, DalamudShortcut);
+        (BadgeTopLeft, other.BadgeTopLeft) = (other.BadgeTopLeft, BadgeTopLeft);
+        (BadgeTopRight, other.BadgeTopRight) = (other.BadgeTopRight, BadgeTopRight);
+        (BadgeBottomLeft, other.BadgeBottomLeft) = (other.BadgeBottomLeft, BadgeBottomLeft);
+        (BadgeBottomRight, other.BadgeBottomRight) = (other.BadgeBottomRight, BadgeBottomRight);
+        (BadgeUseCustomColor, other.BadgeUseCustomColor) = (other.BadgeUseCustomColor, BadgeUseCustomColor);
+        (BadgeColorRed, other.BadgeColorRed) = (other.BadgeColorRed, BadgeColorRed);
+        (BadgeColorGreen, other.BadgeColorGreen) = (other.BadgeColorGreen, BadgeColorGreen);
+        (BadgeColorBlue, other.BadgeColorBlue) = (other.BadgeColorBlue, BadgeColorBlue);
+        (BadgeColorAlpha, other.BadgeColorAlpha) = (other.BadgeColorAlpha, BadgeColorAlpha);
+        (ShowOutline, other.ShowOutline) = (other.ShowOutline, ShowOutline);
+        (OutlineUseCustomColor, other.OutlineUseCustomColor) = (other.OutlineUseCustomColor, OutlineUseCustomColor);
+        (OutlineColorRed, other.OutlineColorRed) = (other.OutlineColorRed, OutlineColorRed);
+        (OutlineColorGreen, other.OutlineColorGreen) = (other.OutlineColorGreen, OutlineColorGreen);
+        (OutlineColorBlue, other.OutlineColorBlue) = (other.OutlineColorBlue, OutlineColorBlue);
+        (OutlineColorAlpha, other.OutlineColorAlpha) = (other.OutlineColorAlpha, OutlineColorAlpha);
+        (OutlineUseCustomThickness, other.OutlineUseCustomThickness) = (other.OutlineUseCustomThickness, OutlineUseCustomThickness);
+        (OutlineThickness, other.OutlineThickness) = (other.OutlineThickness, OutlineThickness);
         SwapPluginShortcutWith(other);
+    }
+
+    public ushort GetCornerBadge(SlotCorner corner) =>
+        corner switch
+        {
+            SlotCorner.TopLeft => BadgeTopLeft,
+            SlotCorner.TopRight => BadgeTopRight,
+            SlotCorner.BottomLeft => BadgeBottomLeft,
+            SlotCorner.BottomRight => BadgeBottomRight,
+            _ => 0,
+        };
+
+    public void SetCornerBadge(SlotCorner corner, ushort value)
+    {
+        switch (corner)
+        {
+            case SlotCorner.TopLeft:
+                BadgeTopLeft = value;
+                break;
+            case SlotCorner.TopRight:
+                BadgeTopRight = value;
+                break;
+            case SlotCorner.BottomLeft:
+                BadgeBottomLeft = value;
+                break;
+            case SlotCorner.BottomRight:
+                BadgeBottomRight = value;
+                break;
+        }
+    }
+
+    public void SetBadgeColor(Vector4 color)
+    {
+        BadgeUseCustomColor = true;
+        BadgeColorRed = color.X;
+        BadgeColorGreen = color.Y;
+        BadgeColorBlue = color.Z;
+        BadgeColorAlpha = color.W;
+    }
+
+    public void ClearCornerBadges()
+    {
+        BadgeTopLeft = 0;
+        BadgeTopRight = 0;
+        BadgeBottomLeft = 0;
+        BadgeBottomRight = 0;
+        BadgeUseCustomColor = false;
+        BadgeColorRed = 1f;
+        BadgeColorGreen = 1f;
+        BadgeColorBlue = 1f;
+        BadgeColorAlpha = 1f;
+    }
+
+    public void SetOutlineColor(Vector4 color)
+    {
+        OutlineUseCustomColor = true;
+        OutlineColorRed = color.X;
+        OutlineColorGreen = color.Y;
+        OutlineColorBlue = color.Z;
+        OutlineColorAlpha = color.W;
+    }
+
+    public void SetOutlineThickness(float thickness)
+    {
+        OutlineUseCustomThickness = true;
+        OutlineThickness = Math.Clamp(thickness, 1f, 8f);
+    }
+
+    public void ClearOutline()
+    {
+        ShowOutline = false;
+        OutlineUseCustomColor = false;
+        OutlineColorRed = 1f;
+        OutlineColorGreen = 1f;
+        OutlineColorBlue = 1f;
+        OutlineColorAlpha = 1f;
+        OutlineUseCustomThickness = false;
+        OutlineThickness = 2f;
     }
 
     public void ResetDalamudShortcut() =>

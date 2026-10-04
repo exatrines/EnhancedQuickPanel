@@ -163,6 +163,8 @@ internal static class PanelStyleImportExport
 
         public float SlotDropTargetAlpha { get; set; }
 
+        public float CornerBadgeScale { get; set; }
+
         public float SelectedSlotBorderRed { get; set; }
 
         public float SelectedSlotBorderGreen { get; set; }
@@ -237,6 +239,7 @@ internal static class PanelStyleImportExport
                 SlotDropTargetGreen = config.SlotDropTargetGreen,
                 SlotDropTargetBlue = config.SlotDropTargetBlue,
                 SlotDropTargetAlpha = config.SlotDropTargetAlpha,
+                CornerBadgeScale = config.CornerBadgeScale,
                 SelectedSlotBorderRed = config.SelectedSlotBorderRed,
                 SelectedSlotBorderGreen = config.SelectedSlotBorderGreen,
                 SelectedSlotBorderBlue = config.SelectedSlotBorderBlue,
@@ -289,6 +292,7 @@ internal static class PanelStyleImportExport
             config.SlotDropTargetGreen = SlotDropTargetGreen;
             config.SlotDropTargetBlue = SlotDropTargetBlue;
             config.SlotDropTargetAlpha = SlotDropTargetAlpha;
+            config.SetCornerBadgeScale(CornerBadgeScale);
             config.SelectedSlotBorderRed = SelectedSlotBorderRed;
             config.SelectedSlotBorderGreen = SelectedSlotBorderGreen;
             config.SelectedSlotBorderBlue = SelectedSlotBorderBlue;

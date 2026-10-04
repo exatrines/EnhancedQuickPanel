@@ -24,7 +24,6 @@ internal static class PluginShortcuts
     private static IReadOnlyList<InstalledPluginEntry> cachedPicker = [];
     private static object? pluginManager;
     private static PropertyInfo? installedPluginsProperty;
-    private static PropertyInfo? dllFileProperty;
 
     internal static void Invalidate()
     {
@@ -37,6 +36,11 @@ internal static class PluginShortcuts
 
     public static IExposedPlugin? Find(PanelSlot slot) =>
         ResolveSlot(slot)?.Plugin;
+
+    public static bool IsDev(PanelSlot slot) =>
+        slot.Kind == PanelSlotKind.Plugin
+        && !string.IsNullOrWhiteSpace(slot.PluginInternalName)
+        && Find(slot)?.IsDev == true;
 
     public static PluginShortcutVisual ResolveVisual(PanelSlot slot)
     {
@@ -206,45 +210,19 @@ internal static class PluginShortcuts
         if (string.IsNullOrWhiteSpace(slot.PluginInternalName))
             return false;
         var entry = ResolveSlot(slot);
-        return TryGetIcon(
-            entry?.Plugin,
-            slot.PluginInternalName,
-            slot.PluginWorkingPluginId,
-            entry?.Local,
-            out texture);
+        return PluginIconStore.TryGet(entry?.Plugin, slot.PluginInternalName, out texture);
     }
 
     public static bool TryGetIcon(InstalledPluginEntry entry, out IDalamudTextureWrap texture) =>
-        TryGetIcon(entry.Plugin, entry.Plugin.InternalName, entry.WorkingId, entry.Local, out texture);
+        PluginIconStore.TryGet(entry.Plugin, entry.Plugin.InternalName, out texture);
 
-    private static bool TryGetIcon(
-        IExposedPlugin? plugin,
-        string internalName,
-        string workingPluginId,
-        object? local,
-        out IDalamudTextureWrap texture)
+    public static void RefreshIcon(PanelSlot slot)
     {
-        string? devIconPath = null;
-        if (plugin?.IsDev == true)
-        {
-            local ??= FindLocal(internalName, workingPluginId);
-            devIconPath = ReadDevIconPath(local);
-        }
+        if (slot.Kind != PanelSlotKind.Plugin || string.IsNullOrWhiteSpace(slot.PluginInternalName))
+            return;
 
-        return PluginIconStore.TryGet(plugin, internalName, devIconPath, out texture);
-    }
-
-    private static string? ReadDevIconPath(object? local)
-    {
-        if (local == null)
-            return null;
-        dllFileProperty ??= LocalType(local).GetProperty("DllFile");
-        if (dllFileProperty?.GetValue(local) is not FileInfo dllFile)
-            return null;
-        var directory = dllFile.DirectoryName;
-        if (string.IsNullOrEmpty(directory))
-            return null;
-        return Path.Combine(directory, "images", "icon.png");
+        var entry = ResolveSlot(slot);
+        PluginIconStore.Refresh(entry?.Plugin, slot.PluginInternalName);
     }
 
     private static InstalledPluginEntry? ResolveSlot(PanelSlot slot)

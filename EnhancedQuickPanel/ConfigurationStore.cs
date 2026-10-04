@@ -19,6 +19,7 @@ internal sealed class ConfigurationStore
     {
         Formatting = Formatting.Indented,
         DefaultValueHandling = DefaultValueHandling.Include,
+        NullValueHandling = NullValueHandling.Ignore,
     };
 
     private readonly string _directory;

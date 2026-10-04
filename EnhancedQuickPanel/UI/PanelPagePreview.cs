@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
@@ -82,11 +82,15 @@ internal static class PanelPagePreview
             SlotChromeDrawer.DrawIconFrame(drawList, topLeft, bottomRight, isGrayedOut);
         }
 
+        SlotCornerBadgeDrawer.Draw(drawList, topLeft, bottomRight, slot, isGrayedOut);
+
         if (overlay.ShowMacroIndicator)
             DrawMacroIndicator(drawList, topLeft, bottomRight);
 
         if (pluginVisual == PluginShortcutVisual.Missing)
             SlotChromeDrawer.DrawUnavailableMark(drawList, topLeft, bottomRight);
+
+        SlotOutlineDrawer.Draw(drawList, topLeft, bottomRight, slot, isGrayedOut);
 
         if (overlay.ShowActionCharges)
             DrawCornerText(drawList, topLeft, bottomRight, overlay.ActionCharges.ToString(), Config.ChargeLabelStyle);

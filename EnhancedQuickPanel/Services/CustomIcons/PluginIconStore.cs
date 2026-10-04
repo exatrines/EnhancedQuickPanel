@@ -6,7 +6,7 @@ using EnhancedQuickPanel.Services;
 
 namespace EnhancedQuickPanel.Services.CustomIcons;
 
-/// <summary>Resolves plugin shortcut icons: IsDev disk file, then icon/Plugins, then IconUrl/Dip17 download.</summary>
+/// <summary>Resolves plugin shortcut icons from icon/Plugins cache, then IconUrl or Dip17 download.</summary>
 internal static class PluginIconStore
 {
     private const string FolderName = "Plugins";
@@ -41,18 +41,25 @@ internal static class PluginIconStore
     public static bool IsDownloading(string internalName) =>
         !string.IsNullOrWhiteSpace(internalName) && InFlight.ContainsKey(internalName);
 
+    public static void Refresh(IExposedPlugin? plugin, string internalName)
+    {
+        if (string.IsNullOrWhiteSpace(internalName) || InFlight.ContainsKey(internalName))
+            return;
+
+        Failed.TryRemove(internalName, out _);
+        if (plugin != null)
+            RequestDownload(internalName, ResolveIconUrl(plugin), force: true);
+    }
+
     public static bool TryGet(
         IExposedPlugin? plugin,
         string internalName,
-        string? devIconPath,
         out IDalamudTextureWrap texture)
     {
         texture = null!;
         if (string.IsNullOrWhiteSpace(internalName))
             return false;
 
-        if (!string.IsNullOrEmpty(devIconPath) && TryGetFromFile(devIconPath, out texture))
-            return true;
         if (TryGetStored(internalName, out texture))
             return true;
         if (plugin != null)
@@ -128,9 +135,11 @@ internal static class PluginIconStore
         }
     }
 
-    private static void RequestDownload(string internalName, string? iconUrl)
+    private static void RequestDownload(string internalName, string? iconUrl, bool force = false)
     {
-        if (PluginLifetime.IsStopping || !NeedsDownload(internalName))
+        if (PluginLifetime.IsStopping)
+            return;
+        if (!force && !NeedsDownload(internalName))
             return;
         if (string.IsNullOrWhiteSpace(iconUrl))
         {
@@ -144,8 +153,19 @@ internal static class PluginIconStore
 
         var name = internalName;
         var url = iconUrl.Trim();
+        if (force)
+            url = WithCacheBuster(url);
         var token = PluginLifetime.Token;
         _ = Task.Run(() => DownloadAsync(name, url, token));
+    }
+
+    private static string WithCacheBuster(string url)
+    {
+        var hash = url.IndexOf('#');
+        var head = hash >= 0 ? url[..hash] : url;
+        var fragment = hash >= 0 ? url[hash..] : string.Empty;
+        var sep = head.Contains('?') ? '&' : '?';
+        return $"{head}{sep}eqp={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{fragment}";
     }
 
     private static bool NeedsDownload(string internalName)
@@ -198,7 +218,7 @@ internal static class PluginIconStore
 
             Directory.CreateDirectory(_directory);
             var stem = FileStem(internalName);
-            var destPath = Path.Combine(_directory, stem + extension);
+            var destPath = Path.Combine(_directory, $"{stem}.{Guid.NewGuid():N}{extension}");
             var committed = await PluginLifetime.WriteAndCommitAsync(
                 destPath,
                 result.Bytes,
@@ -240,7 +260,7 @@ internal static class PluginIconStore
         {
             if (!CustomIconFileNames.IsSupportedImageExtension(Path.GetExtension(filePath)))
                 continue;
-            if (!string.Equals(CustomIconFileNames.GetStem(filePath), stem, StringComparison.OrdinalIgnoreCase))
+            if (!MatchesPluginStem(filePath, stem))
                 continue;
             PathByStem[stem] = filePath;
             path = filePath;
@@ -256,7 +276,7 @@ internal static class PluginIconStore
         {
             if (string.Equals(filePath, keepPath, StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (!string.Equals(CustomIconFileNames.GetStem(filePath), stem, StringComparison.OrdinalIgnoreCase))
+            if (!MatchesPluginStem(filePath, stem))
                 continue;
             try
             {
@@ -272,10 +292,30 @@ internal static class PluginIconStore
     private static void InvalidateStem(string stem)
     {
         PathByStem.TryRemove(stem, out _);
-        foreach (var key in TextureCache.Keys)
+        RemoveKeysForStem(TextureCache, stem);
+        RemoveKeysForStem(MissingFiles, stem);
+    }
+
+    private static void RemoveKeysForStem<TValue>(ConcurrentDictionary<string, TValue> cache, string stem)
+    {
+        foreach (var key in cache.Keys)
         {
-            if (string.Equals(CustomIconFileNames.GetStem(key), stem, StringComparison.OrdinalIgnoreCase))
-                TextureCache.TryRemove(key, out _);
+            if (MatchesPluginStem(key, stem))
+                cache.TryRemove(key, out _);
         }
+    }
+
+    private static bool MatchesPluginStem(string filePath, string pluginStem)
+    {
+        var fileStem = CustomIconFileNames.GetStem(filePath);
+        if (fileStem.Equals(pluginStem, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var prefix = pluginStem + ".";
+        if (!fileStem.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var suffix = fileStem[prefix.Length..];
+        return suffix.Length == 32 && suffix.All(char.IsAsciiHexDigit);
     }
 }

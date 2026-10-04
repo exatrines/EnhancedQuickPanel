@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0.0] - 2026-10-05
+
+### Added
+
+- Plugin and macro slots can refresh their icon from the slot context menu
+- Dev plugin icons use the manifest IconUrl, same as third-party plugins
+- Slot icons can show Font Awesome marks in each corner, with a style default color and size, and an optional per-slot color. Dalamud shortcuts keep their type icon in the bottom-right corner. Dev plugins can lock that corner to a wrench with its own color
+- Slots can show a colored outline. Off by default; any slot can set color and thickness, or use the style defaults
+- Overlay position can be locked from the panel context menu, or from an optional header button (off by default, hidden while collapsed). Dragging slots, header buttons, or empty padding still moves the window unless that is turned off in Other settings
+- Edit mode can place the page list and slot editor on either side of the panel
+
+### Changed
+
+- Corner-icon and outline editors replace the slot editor body instead of opening a separate window
+
+### Fixed
+
+- Refreshing a plugin icon now reloads the new image instead of keeping the previous texture
+- Configuration load ignores nested JSON nulls, and save no longer writes null properties
+- Hiding the page name still lets that header strip move the overlay
+
 ## [1.0.14.0] - 2026-09-30
 
 ### Fixed
@@ -146,7 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.14.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.1.0.0...HEAD
+[1.1.0.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.14.0...v1.1.0.0
 [1.0.14.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.13.0...v1.0.14.0
 [1.0.13.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.12.0...v1.0.13.0
 [1.0.12.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.11.0...v1.0.12.0

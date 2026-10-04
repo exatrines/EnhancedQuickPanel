@@ -1,4 +1,5 @@
-﻿using EnhancedQuickPanel.Models;
+using EnhancedQuickPanel.Models;
+using EnhancedQuickPanel.Services;
 using Newtonsoft.Json;
 
 namespace EnhancedQuickPanel;
@@ -27,10 +28,18 @@ public sealed class Configuration
 
     public bool ShowCollapseButton { get; set; } = true;
 
+    public bool ShowLockButton { get; set; }
+
     [JsonProperty("ExpandToLeft")]
     public bool CollapseButtonOnRight { get; set; }
 
     public bool EditButtonOnRight { get; set; } = true;
+
+    public bool LockButtonOnRight { get; set; } = true;
+
+    public bool PageEditorOnRight { get; set; }
+
+    public bool SlotEditorOnRight { get; set; } = true;
 
     public bool ShowPageName { get; set; } = true;
 
@@ -41,6 +50,8 @@ public sealed class Configuration
     public bool PluginMiddleClickTogglesEnabled { get; set; } = true;
 
     public bool PluginRightClickOpensSlotMenu { get; set; } = true;
+
+    public bool LockDevPluginWrench { get; set; }
 
     public int LayoutBlockColumns { get; set; } = 1;
 
@@ -65,6 +76,10 @@ public sealed class Configuration
     public float OverlayPosX { get; set; } = 200f;
 
     public float OverlayPosY { get; set; } = 200f;
+
+    public bool OverlayLocked { get; set; }
+
+    public bool DisableOverlayDragFromItems { get; set; }
 
     public float SlotSize { get; set; } = 40f;
 
@@ -95,6 +110,34 @@ public sealed class Configuration
     public float SlotDropTargetBlue { get; set; } = 0.28f;
 
     public float SlotDropTargetAlpha { get; set; } = 0.55f;
+
+    public float CornerBadgeRed { get; set; } = 1f;
+
+    public float CornerBadgeGreen { get; set; } = 1f;
+
+    public float CornerBadgeBlue { get; set; } = 1f;
+
+    public float CornerBadgeAlpha { get; set; } = 1f;
+
+    public float CornerBadgeScale { get; set; } = 1f;
+
+    public float DevPluginWrenchRed { get; set; } = 1f;
+
+    public float DevPluginWrenchGreen { get; set; } = 0.84f;
+
+    public float DevPluginWrenchBlue { get; set; } = 0.2f;
+
+    public float DevPluginWrenchAlpha { get; set; } = 1f;
+
+    public float SlotOutlineRed { get; set; } = 1f;
+
+    public float SlotOutlineGreen { get; set; } = 0.85f;
+
+    public float SlotOutlineBlue { get; set; } = 0.4f;
+
+    public float SlotOutlineAlpha { get; set; } = 1f;
+
+    public float SlotOutlineThickness { get; set; } = 2f;
 
     public float SelectedSlotBorderRed { get; set; } = 0.26f;
 
@@ -173,6 +216,15 @@ public sealed class Configuration
     public Vector4 SlotDropTargetColor =>
         new(SlotDropTargetRed, SlotDropTargetGreen, SlotDropTargetBlue, SlotDropTargetAlpha);
 
+    public Vector4 CornerBadgeColor =>
+        new(CornerBadgeRed, CornerBadgeGreen, CornerBadgeBlue, CornerBadgeAlpha);
+
+    public Vector4 DevPluginWrenchColor =>
+        new(DevPluginWrenchRed, DevPluginWrenchGreen, DevPluginWrenchBlue, DevPluginWrenchAlpha);
+
+    public Vector4 SlotOutlineColor =>
+        new(SlotOutlineRed, SlotOutlineGreen, SlotOutlineBlue, SlotOutlineAlpha);
+
     public Vector4 SelectedSlotBorderColor =>
         new(SelectedSlotBorderRed, SelectedSlotBorderGreen, SelectedSlotBorderBlue, SelectedSlotBorderAlpha);
 
@@ -204,6 +256,41 @@ public sealed class Configuration
         SlotBgBlue = color.Z;
         SlotBgAlpha = color.W;
     }
+
+    public void SetCornerBadgeColor(Vector4 color)
+    {
+        CornerBadgeRed = color.X;
+        CornerBadgeGreen = color.Y;
+        CornerBadgeBlue = color.Z;
+        CornerBadgeAlpha = color.W;
+    }
+
+    public void SetCornerBadgeScale(float scale) =>
+        CornerBadgeScale = scale <= 0f
+            ? 1f
+            : Math.Clamp(scale, SlotCornerBadgeDrawer.MinScale, SlotCornerBadgeDrawer.MaxScale);
+
+    public void SetDevPluginWrenchColor(Vector4 color)
+    {
+        DevPluginWrenchRed = color.X;
+        DevPluginWrenchGreen = color.Y;
+        DevPluginWrenchBlue = color.Z;
+        DevPluginWrenchAlpha = color.W;
+    }
+
+    public void SetSlotOutlineColor(Vector4 color)
+    {
+        SlotOutlineRed = color.X;
+        SlotOutlineGreen = color.Y;
+        SlotOutlineBlue = color.Z;
+        SlotOutlineAlpha = color.W;
+    }
+
+    public void SetSlotOutlineThickness(float thickness) =>
+        SlotOutlineThickness = Math.Clamp(
+            thickness,
+            SlotOutlineDrawer.MinThickness,
+            SlotOutlineDrawer.MaxThickness);
 
     public void SetTooltipBgColor(Vector4 color)
     {
@@ -306,6 +393,9 @@ public sealed class Configuration
         LayoutBlockRows = PanelLayout.ClampBlocks(LayoutBlockRows);
 
         ContextMenu?.EnsureDefaults();
+
+        SetSlotOutlineThickness(SlotOutlineThickness);
+        SetCornerBadgeScale(CornerBadgeScale);
 
         if (Pages is null)
             return;

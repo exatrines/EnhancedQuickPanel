@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
@@ -24,7 +24,23 @@ internal static class SlotEditor
 
     public static void Draw(PanelSlot slot, ref bool slotEditorExpanded)
     {
+        OutlineColorPicker.NotifySlot(slot);
+        FontAwesomePicker.NotifySlot(slot);
         DrawHeaderBar(slot, ref slotEditorExpanded);
+        if (FontAwesomePicker.IsOpenFor(slot))
+        {
+            using (new PanelUiEditFieldStyleScope(Config.PanelUi))
+                FontAwesomePicker.DrawEmbedded(slot);
+            return;
+        }
+
+        if (OutlineColorPicker.IsOpenFor(slot))
+        {
+            using (new PanelUiEditFieldStyleScope(Config.PanelUi))
+                OutlineColorPicker.DrawEmbedded(slot);
+            return;
+        }
+
         if (slot.Kind == PanelSlotKind.Plugin)
         {
             using (new PanelUiEditFieldStyleScope(Config.PanelUi))
@@ -51,35 +67,67 @@ internal static class SlotEditor
         var iconButtonSize = new Vector2(blockHeight, blockHeight);
         var actionButtonSize = new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight());
         var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var cornerOpen = FontAwesomePicker.IsOpenFor(slot);
+        var outlineOpen = OutlineColorPicker.IsOpenFor(slot);
 
         using (new PanelUiEditFieldStyleScope(style))
         {
-            SlotIconPicker.DrawIconButton(slot, iconButtonSize, interactive: iconInteractive);
+            SlotIconPicker.DrawIconButton(
+                slot,
+                iconButtonSize,
+                interactive: iconInteractive && !cornerOpen && !outlineOpen);
             ImGui.SameLine(0f, spacing);
 
             var contentWidth = ImGui.GetContentRegionAvail().X;
+            var kindButtons = 2;
+            var nameButtons = 1 + trailingButtonCount;
+            var kindRowWidth = Math.Max(
+                32f,
+                contentWidth - actionButtonSize.X * kindButtons - spacing * kindButtons);
             var nameRowWidth = Math.Max(
                 32f,
-                contentWidth - actionButtonSize.X * trailingButtonCount - spacing * trailingButtonCount);
+                contentWidth - actionButtonSize.X * nameButtons - spacing * nameButtons);
 
             ImGui.BeginGroup();
 
-            var kindRowStartX = ImGui.GetCursorPosX();
+            if (DrawModeToggle(
+                    FontAwesomeIcon.BorderAll,
+                    "##eqpSlotCornerToggle",
+                    T("slot.corner.edit"),
+                    actionButtonSize,
+                    style,
+                    cornerOpen))
+            {
+                if (cornerOpen)
+                    FontAwesomePicker.Close();
+                else
+                {
+                    OutlineColorPicker.Close();
+                    FontAwesomePicker.Open(slot);
+                }
+            }
+
+            ImGui.SameLine(0f, spacing);
+            var kindPos = ImGui.GetCursorPos();
             if (CanSwitchKind(slot))
             {
-                ImGui.PushItemWidth(Math.Max(32f, contentWidth - actionButtonSize.X - spacing));
+                ImGui.PushItemWidth(kindRowWidth);
                 DrawKindCombo(slot);
                 ImGui.PopItemWidth();
             }
             else
+            {
                 ImGui.TextUnformatted(ResolveKindLabel(slot));
-            ImGui.SameLine();
-            ImGui.SetCursorPosX(kindRowStartX + contentWidth - actionButtonSize.X);
+                ImGui.SetCursorPos(new Vector2(kindPos.X + kindRowWidth, kindPos.Y));
+            }
+
+            ImGui.SameLine(0f, spacing);
             using (new PanelUiButtonStyleScope(style))
             {
+                var expandOutward = Config.SlotEditorOnRight;
                 var expandIcon = slotEditorExpanded
-                    ? FontAwesomeIcon.AngleDoubleLeft
-                    : FontAwesomeIcon.AngleDoubleRight;
+                    ? (expandOutward ? FontAwesomeIcon.AngleDoubleLeft : FontAwesomeIcon.AngleDoubleRight)
+                    : (expandOutward ? FontAwesomeIcon.AngleDoubleRight : FontAwesomeIcon.AngleDoubleLeft);
                 if (CenteredIconButton.Draw(
                         expandIcon,
                         "##eqpSlotEditorExpand",
@@ -89,73 +137,146 @@ internal static class SlotEditor
                     slotEditorExpanded = !slotEditorExpanded;
             }
 
-            if (isPlugin)
-                PluginShortcutEditor.DrawCurrentName(slot, nameRowWidth);
-            else if (isDalamud)
-                DalamudShortcuts.DrawCombo(slot, nameRowWidth, "##eqpSlotEditorDalamud");
-            else if (IsTextCommandEditorSlot(slot))
+            if (DrawModeToggle(
+                    FontAwesomeIcon.BorderNone,
+                    "##eqpSlotOutlineToggle",
+                    T("slot.outline.toggle"),
+                    actionButtonSize,
+                    style,
+                    outlineOpen))
             {
-                var label = slot.Label;
-                ImGui.PushItemWidth(nameRowWidth);
-                using (PanelUiTextStyle.PushInputText(style, "##eqpSlotEditorName"))
+                if (outlineOpen)
+                    OutlineColorPicker.Close();
+                else
                 {
-                    if (ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref label, 64))
-                    {
-                        slot.Label = label;
-                        Config.Save();
-                    }
-
-                    PanelUiTextStyle.NotifyInputHover("##eqpSlotEditorName");
+                    FontAwesomePicker.Close();
+                    OutlineColorPicker.Open(slot);
                 }
-
-                ImGui.PopItemWidth();
-            }
-            else
-            {
-                ImGui.PushItemWidth(nameRowWidth);
-                using (ImRaii.Disabled())
-                using (PanelUiTextStyle.PushTextDisabled(style))
-                {
-                    var displayName = ResolveDisplayName(slot);
-                    ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref displayName, 64, ImGuiInputTextFlags.ReadOnly);
-                }
-
-                ImGui.PopItemWidth();
             }
 
             ImGui.SameLine(0f, spacing);
-            using (new PanelUiButtonStyleScope(style))
-            {
-                if (!isPlugin)
-                {
-                    var canExecute = slot.IsConfigured;
-                    if (CenteredIconButton.Draw(
-                            FontAwesomeIcon.Play,
-                            "##eqpSlotEditorExecute",
-                            actionButtonSize,
-                            style.TextColor,
-                            style.TextHoverColor,
-                            enabled: canExecute)
-                        && canExecute)
-                        SlotExecutor.Execute(slot);
+            DrawNameField(slot, nameRowWidth, style, isPlugin, isDalamud);
 
-                    ImGui.SameLine(0f, spacing);
+            ImGui.SameLine(0f, spacing);
+            DrawTrailingActions(slot, actionButtonSize, style, isPlugin);
+
+            ImGui.EndGroup();
+        }
+    }
+
+    private static bool DrawModeToggle(
+        FontAwesomeIcon icon,
+        string id,
+        string tooltip,
+        Vector2 size,
+        PanelUiStyleConfig style,
+        bool active)
+    {
+        using (new PanelUiButtonStyleScope(style))
+        {
+            if (active)
+            {
+                var accent = MirageUi.GetColor(MirageUi.Color.Accent);
+                ImGui.PushStyleColor(ImGuiCol.Button, accent);
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, accent);
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive, accent);
+            }
+
+            var clicked = CenteredIconButton.Draw(icon, id, size, style.TextColor, style.TextHoverColor);
+            if (active)
+                ImGui.PopStyleColor(3);
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(tooltip);
+
+            return clicked;
+        }
+    }
+
+    private static void DrawNameField(
+        PanelSlot slot,
+        float nameRowWidth,
+        PanelUiStyleConfig style,
+        bool isPlugin,
+        bool isDalamud)
+    {
+        if (isPlugin)
+        {
+            PluginShortcutEditor.DrawCurrentName(slot, nameRowWidth);
+            return;
+        }
+
+        if (isDalamud)
+        {
+            DalamudShortcuts.DrawCombo(slot, nameRowWidth, "##eqpSlotEditorDalamud");
+            return;
+        }
+
+        if (IsTextCommandEditorSlot(slot))
+        {
+            var label = slot.Label;
+            ImGui.PushItemWidth(nameRowWidth);
+            using (PanelUiTextStyle.PushInputText(style, "##eqpSlotEditorName"))
+            {
+                if (ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref label, 64))
+                {
+                    slot.Label = label;
+                    Config.Save();
                 }
 
-                var shiftHeld = ImGui.GetIO().KeyShift;
+                PanelUiTextStyle.NotifyInputHover("##eqpSlotEditorName");
+            }
+
+            ImGui.PopItemWidth();
+            return;
+        }
+
+        ImGui.PushItemWidth(nameRowWidth);
+        using (ImRaii.Disabled())
+        using (PanelUiTextStyle.PushTextDisabled(style))
+        {
+            var displayName = ResolveDisplayName(slot);
+            ImGui.InputTextWithHint("##eqpSlotEditorName", T("common.name"), ref displayName, 64, ImGuiInputTextFlags.ReadOnly);
+        }
+
+        ImGui.PopItemWidth();
+    }
+
+    private static void DrawTrailingActions(
+        PanelSlot slot,
+        Vector2 actionButtonSize,
+        PanelUiStyleConfig style,
+        bool isPlugin)
+    {
+        using (new PanelUiButtonStyleScope(style))
+        {
+            if (!isPlugin)
+            {
+                var canExecute = slot.IsConfigured;
                 if (CenteredIconButton.Draw(
-                        FontAwesomeIcon.Trash,
-                        "##eqpSlotEditorClear",
+                        FontAwesomeIcon.Play,
+                        "##eqpSlotEditorExecute",
                         actionButtonSize,
                         style.TextColor,
                         style.TextHoverColor,
-                        enabled: shiftHeld,
-                        disabledTooltip: T("common.deleteHint"))
-                    && shiftHeld)
-                    ClearSlotContents(slot);
+                        enabled: canExecute)
+                    && canExecute)
+                    SlotExecutor.Execute(slot);
+
+                ImGui.SameLine(0f, ImGui.GetStyle().ItemSpacing.X);
             }
 
-            ImGui.EndGroup();
+            var shiftHeld = ImGui.GetIO().KeyShift;
+            if (CenteredIconButton.Draw(
+                    FontAwesomeIcon.Trash,
+                    "##eqpSlotEditorClear",
+                    actionButtonSize,
+                    style.TextColor,
+                    style.TextHoverColor,
+                    enabled: shiftHeld,
+                    disabledTooltip: T("common.deleteHint"))
+                && shiftHeld)
+                ClearSlotContents(slot);
         }
     }
 

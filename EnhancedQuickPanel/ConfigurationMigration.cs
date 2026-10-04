@@ -79,16 +79,37 @@ internal static class ConfigurationMigration
 
     public static void NormalizeCurrentKeys(JObject obj)
     {
-        foreach (var property in obj.Properties().ToList())
-        {
-            if (property.Value.Type == JTokenType.Null)
-                property.Remove();
-        }
+        StripNullProperties(obj);
 
         if (obj["ShowPageName"] is null && obj["HidePageName"] is not null)
             obj["ShowPageName"] = !obj.Value<bool>("HidePageName");
 
         obj.Remove("HidePageName");
+    }
+
+    private static void StripNullProperties(JToken token)
+    {
+        if (token is JObject obj)
+        {
+            foreach (var property in obj.Properties().ToList())
+            {
+                if (property.Value.Type == JTokenType.Null)
+                    property.Remove();
+                else
+                    StripNullProperties(property.Value);
+            }
+
+            return;
+        }
+
+        if (token is not JArray array)
+            return;
+
+        foreach (var item in array)
+        {
+            if (item.Type is not JTokenType.Null and not JTokenType.Undefined)
+                StripNullProperties(item);
+        }
     }
 
     private static ConfigFormatInspection Invalid(string reason) =>

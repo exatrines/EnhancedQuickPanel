@@ -1,7 +1,6 @@
 using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
-using Dalamud.Interface.Utility.Raii;
 using EnhancedQuickPanel.Models;
 
 namespace EnhancedQuickPanel.Services;
@@ -84,17 +83,6 @@ internal static class DalamudShortcuts
         if (TryGetBaseTexture(out var baseTexture))
             SafeTextureDraw.TryAddImage(drawList, baseTexture, min, max, tint);
 
-        var icon = TryGet(slot.DalamudShortcut, out var preset) ? preset.Icon : FontAwesomeIcon.PuzzlePiece;
-        var iconText = icon.ToIconString();
-        var font = UiBuilder.IconFont;
-        var slotSize = max - min;
-        var fontSize = Math.Max(8f, slotSize.Y * 0.3f);
-        Vector2 textSize;
-        using (ImRaii.PushFont(font))
-            textSize = ImGui.CalcTextSize(iconText) * (fontSize / ImGui.GetFontSize());
-        var inset = Math.Max(2f, slotSize.X * 0.08f);
-        var pos = new Vector2(max.X - inset - textSize.X, max.Y - inset - textSize.Y);
-        drawList.AddText(font, fontSize, pos, tint, iconText);
         return true;
     }
 

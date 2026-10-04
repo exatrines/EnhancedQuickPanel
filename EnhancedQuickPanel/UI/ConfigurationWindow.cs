@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface.Utility.Raii;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using EnhancedQuickPanel.Models;
 using EnhancedQuickPanel.Services;
@@ -90,6 +90,7 @@ public sealed class ConfigurationWindow : Window
     {
         DrawQuickPanelSettings();
         DrawLayoutSettings();
+        DrawEditModeSettings();
         DrawHeaderSettings();
         DrawOtherSettings();
         DrawPluginShortcutSettings();
@@ -107,6 +108,41 @@ public sealed class ConfigurationWindow : Window
             PanelDisplayCoordinator.SetDisplayMode(
                 replaceNative ? PanelDisplayMode.PluginOnly : PanelDisplayMode.NativeOnly);
         }
+    }
+
+    private void DrawEditModeSettings()
+    {
+        MirageUi.SubHeader(T("config.editMode.title"));
+        MirageUi.Text(T("config.editMode.description"), MirageUi.Color.Secondary);
+
+        DrawEditorSideSetting(
+            "config.editMode.pageList",
+            "eqpPageEditorSide",
+            Config.PageEditorOnRight,
+            value => Config.PageEditorOnRight = value);
+        DrawEditorSideSetting(
+            "config.editMode.slotEditor",
+            "eqpSlotEditorSide",
+            Config.SlotEditorOnRight,
+            value => Config.SlotEditorOnRight = value);
+    }
+
+    private static void DrawEditorSideSetting(
+        string labelKey,
+        string sideId,
+        bool onRight,
+        Action<bool> assign)
+    {
+        MirageUi.Text(T(labelKey));
+        var side = onRight ? 1 : 0;
+        var leftChanged = MirageUi.Radio($"{T("config.header.sideLeft")}##{sideId}L", ref side, 0);
+        ImGui.SameLine();
+        var rightChanged = MirageUi.Radio($"{T("config.header.sideRight")}##{sideId}R", ref side, 1);
+        if (!leftChanged && !rightChanged)
+            return;
+
+        assign(side == 1);
+        Config.Save();
     }
 
     private void DrawHeaderSettings()
@@ -131,6 +167,14 @@ public sealed class ConfigurationWindow : Window
             Config.CollapseButtonOnRight,
             value => Config.CollapseButtonOnRight = value,
             disableSideWhenHidden: false);
+        DrawHeaderButtonSetting(
+            "config.header.showLockButton",
+            Config.ShowLockButton,
+            value => Config.ShowLockButton = value,
+            "eqpLockSide",
+            Config.LockButtonOnRight,
+            value => Config.LockButtonOnRight = value,
+            disableSideWhenHidden: true);
     }
 
     private static void DrawPageNameButtonSetting()
@@ -202,6 +246,10 @@ public sealed class ConfigurationWindow : Window
             "config.other.showEmptySlotBorder",
             Config.ShowEmptySlotBorder,
             value => Config.ShowEmptySlotBorder = value);
+        CheckboxSetting(
+            "config.other.disableOverlayDragFromItems",
+            Config.DisableOverlayDragFromItems,
+            value => Config.DisableOverlayDragFromItems = value);
     }
 
     private void DrawPluginShortcutSettings()
@@ -216,6 +264,26 @@ public sealed class ConfigurationWindow : Window
             "config.pluginShortcut.rightClickOpenSettings",
             !Config.PluginRightClickOpensSlotMenu,
             value => Config.PluginRightClickOpensSlotMenu = !value);
+
+        var lockWrench = Config.LockDevPluginWrench;
+        using (var group = MirageUi.CheckboxGroup(T("config.pluginShortcut.lockDevWrench"), ref lockWrench))
+        {
+            if (group.Changed)
+            {
+                Config.LockDevPluginWrench = lockWrench;
+                Config.Save();
+            }
+
+            if (lockWrench)
+            {
+                var wrenchColor = Config.DevPluginWrenchColor;
+                if (MirageUi.ColorEdit4(T("config.pluginShortcut.devWrenchColor"), ref wrenchColor))
+                {
+                    Config.SetDevPluginWrenchColor(wrenchColor);
+                    Config.Save();
+                }
+            }
+        }
     }
 
     private static void CheckboxSetting(string key, bool value, Action<bool> assign)
@@ -286,6 +354,7 @@ public sealed class ConfigurationWindow : Window
         Checkbox("contextMenu.importNative", items.IsImportNativeVisible, value => items.ShowImportNative = value);
         Checkbox("contextMenu.edit", items.IsEditVisible, value => items.ShowEdit = value);
         Checkbox("contextMenu.collapse", items.IsCollapseVisible, value => items.ShowCollapse = value);
+        Checkbox("contextMenu.lock", items.IsLockVisible, value => items.ShowLock = value);
         Checkbox("contextMenu.close", items.IsCloseVisible, value => items.ShowClose = value);
 
         if (changed)
@@ -484,6 +553,44 @@ public sealed class ConfigurationWindow : Window
             Config.SlotDropTargetGreen = slotDropTargetBg.Y;
             Config.SlotDropTargetBlue = slotDropTargetBg.Z;
             Config.SlotDropTargetAlpha = slotDropTargetBg.W;
+            changed = true;
+        }
+
+        var cornerBadge = Config.CornerBadgeColor;
+        if (MirageUi.ColorEdit4(T("config.style.cornerBadge"), ref cornerBadge))
+        {
+            Config.SetCornerBadgeColor(cornerBadge);
+            changed = true;
+        }
+
+        var cornerBadgeScale = Config.CornerBadgeScale;
+        if (MirageUi.SliderFloat(
+                T("config.style.cornerBadgeSize"),
+                ref cornerBadgeScale,
+                SlotCornerBadgeDrawer.MinScale,
+                SlotCornerBadgeDrawer.MaxScale,
+                id: "eqpCornerBadgeScale"))
+        {
+            Config.SetCornerBadgeScale(cornerBadgeScale);
+            changed = true;
+        }
+
+        var slotOutline = Config.SlotOutlineColor;
+        if (MirageUi.ColorEdit4(T("config.style.slotOutline"), ref slotOutline))
+        {
+            Config.SetSlotOutlineColor(slotOutline);
+            changed = true;
+        }
+
+        var slotOutlineThickness = Config.SlotOutlineThickness;
+        if (MirageUi.SliderFloat(
+                T("config.style.slotOutlineThickness"),
+                ref slotOutlineThickness,
+                SlotOutlineDrawer.MinThickness,
+                SlotOutlineDrawer.MaxThickness,
+                id: "eqpSlotOutlineThickness"))
+        {
+            Config.SetSlotOutlineThickness(slotOutlineThickness);
             changed = true;
         }
 
