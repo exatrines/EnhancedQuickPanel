@@ -9,6 +9,7 @@ namespace EnhancedQuickPanel.UI;
 internal static class FontAwesomePicker
 {
     private const float CellSize = 36f;
+    private const string PickerPopupId = "##eqpFaPickerPopup";
 
     private static readonly FontAwesomeIcon[] AllIcons = Enum.GetValues<FontAwesomeIcon>()
         .Where(icon => (ushort)icon != 0)
@@ -49,89 +50,164 @@ internal static class FontAwesomePicker
             Close();
     }
 
-    public static void DrawEmbedded(PanelSlot slot)
+    public static void DrawHeaderIcon(PanelSlot slot, Vector2 size)
+    {
+        if (!IsOpenFor(slot))
+            return;
+
+        var iconLocked = IsIconLocked(slot);
+        var savedBadge = slot.GetCornerBadge(_corner);
+        if (iconLocked)
+            _hoverIcon = null;
+        else if (_hoverIcon is { } hover)
+            slot.SetCornerBadge(_corner, (ushort)hover);
+
+        SlotIconPicker.DrawPreview(slot, size);
+        var previewMin = ImGui.GetItemRectMin();
+        var previewMax = ImGui.GetItemRectMax();
+        if (!iconLocked)
+            slot.SetCornerBadge(_corner, savedBadge);
+        DrawCornerButtons(slot, previewMin, previewMax, Config.PanelUi);
+    }
+
+    public static void DrawEmbedded(PanelSlot slot, bool expanded)
     {
         if (!IsOpenFor(slot))
             return;
 
         var style = Config.PanelUi;
-        if (SlotCornerBadgeDrawer.TryGetLockedBottomRight(slot, out _, out _)
-            && _corner == SlotCorner.BottomRight)
-            _corner = SlotCorner.TopLeft;
-        var spacing = ImGui.GetStyle().ItemSpacing;
+        var iconLocked = IsIconLocked(slot);
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
         var frameH = ImGui.GetFrameHeight();
-        var previewSize = frameH * 2f + spacing.Y;
-        var savedBadge = slot.GetCornerBadge(_corner);
-        if (_hoverIcon is { } hover)
-            slot.SetCornerBadge(_corner, (ushort)hover);
+        var colorLabel = T("faPicker.colorLabel");
+        var sizeLabel = T("faPicker.size");
+        var labelWidth = Math.Max(ImGui.CalcTextSize(colorLabel).X, ImGui.CalcTextSize(sizeLabel).X);
 
-        ImGui.BeginGroup();
-        SlotIconPicker.DrawPreview(slot, new Vector2(previewSize, previewSize));
-        var previewMin = ImGui.GetItemRectMin();
-        var previewMax = ImGui.GetItemRectMax();
-        slot.SetCornerBadge(_corner, savedBadge);
-        DrawCornerButtons(slot, previewMin, previewMax, style);
-        ImGui.EndGroup();
+        DrawColorRow(slot, style, colorLabel, labelWidth, frameH, spacing, expanded);
+        DrawSizeRow(slot, style, sizeLabel, labelWidth, frameH, spacing);
+        if (iconLocked)
+        {
+            _hoverIcon = null;
+            DrawLockedNotice();
+        }
+        else
+        {
+            DrawSearchRow(slot, style, frameH, spacing);
+            DrawIconGrid(slot, style);
+        }
+    }
 
-        ImGui.SameLine(0f, spacing.X);
-        var rightWidth = Math.Max(32f, ImGui.GetContentRegionAvail().X);
-        ImGui.BeginGroup();
-        DrawColorRow(slot, style, rightWidth, frameH, spacing.X);
-        DrawSearchRow(slot, style, rightWidth, frameH, spacing.X);
-        ImGui.EndGroup();
+    private static bool IsIconLocked(PanelSlot slot) =>
+        _corner == SlotCorner.BottomRight
+        && SlotCornerBadgeDrawer.TryGetLockedBottomRight(slot, out _);
 
-        DrawIconGrid(slot, style);
+    private static void DrawLockedNotice()
+    {
+        var avail = ImGui.GetContentRegionAvail();
+        using var child = ImRaii.Child("##eqpFaPickerLocked", avail, false);
+        if (!child)
+            return;
+
+        using (PanelUiTextStyle.PushText(Config.PanelUi))
+            ImGui.TextWrapped(T("slot.corner.locked"));
     }
 
     private static void DrawColorRow(
         PanelSlot slot,
         PanelUiStyleConfig style,
-        float width,
+        string label,
+        float labelWidth,
         float frameH,
-        float spacing)
+        float spacing,
+        bool expanded)
     {
-        var color = SlotCornerBadgeDrawer.GetColor(slot);
-        ImGui.SetNextItemWidth(Math.Max(32f, width - frameH - spacing));
-        if (ImGui.ColorEdit4(
-                "##eqpFaPickerColor",
-                ref color,
-                ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.NoOptions))
-        {
-            slot.SetBadgeColor(color);
-            Config.Save();
-        }
+        DrawRowLabel(label, labelWidth, spacing);
+        var color = SlotCornerBadgeDrawer.GetColor(slot, _corner);
+        var avail = ImGui.GetContentRegionAvail().X;
+        var fieldWidth = MathF.Floor((avail - frameH * 2f - spacing * 5f) / 4f);
+        if (fieldWidth < 1f)
+            fieldWidth = 1f;
+        var colorChanged = DrawChannel($"##eqpFaPickerR{(int)_corner}", ref color.X, fieldWidth, expanded ? "R:%.0f" : "%.0f");
+        ImGui.SameLine(0f, spacing);
+        colorChanged |= DrawChannel($"##eqpFaPickerG{(int)_corner}", ref color.Y, fieldWidth, expanded ? "G:%.0f" : "%.0f");
+        ImGui.SameLine(0f, spacing);
+        colorChanged |= DrawChannel($"##eqpFaPickerB{(int)_corner}", ref color.Z, fieldWidth, expanded ? "B:%.0f" : "%.0f");
+        ImGui.SameLine(0f, spacing);
+        colorChanged |= DrawChannel($"##eqpFaPickerA{(int)_corner}", ref color.W, fieldWidth, expanded ? "A:%.0f" : "%.0f");
+
+        ImGui.SameLine(0f, spacing);
+        if (ImGui.ColorButton(
+                "##eqpFaPickerSwatch",
+                color,
+                ImGuiColorEditFlags.AlphaPreview | ImGuiColorEditFlags.NoTooltip,
+                new Vector2(frameH, frameH)))
+            ImGui.OpenPopup(PickerPopupId);
 
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip(T("faPicker.color"));
 
         ImGui.SameLine(0f, spacing);
-        using (new PanelUiButtonStyleScope(style))
+        var reset = false;
+        DrawResetButton("##eqpFaPickerColorReset", style, T("faPicker.useDefaultColor"), () =>
         {
-            if (CenteredIconButton.Draw(
-                    FontAwesomeIcon.Undo,
-                    "##eqpFaPickerColorReset",
-                    new Vector2(frameH, frameH),
-                    style.TextColor,
-                    style.TextHoverColor))
-            {
-                slot.BadgeUseCustomColor = false;
-                Config.Save();
-            }
+            slot.ClearCornerColor(_corner);
+            reset = true;
+        });
+
+        if (ImGui.BeginPopup(PickerPopupId))
+        {
+            if (ImGui.ColorPicker4("##eqpFaPickerColor", ref color))
+                colorChanged = true;
+            ImGui.EndPopup();
         }
 
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip(T("faPicker.useDefaultColor"));
+        if (colorChanged)
+            slot.SetCornerColor(_corner, color);
+
+        if (colorChanged || reset)
+            Config.Save();
+    }
+
+    private static void DrawSizeRow(
+        PanelSlot slot,
+        PanelUiStyleConfig style,
+        string label,
+        float labelWidth,
+        float frameH,
+        float spacing)
+    {
+        DrawRowLabel(label, labelWidth, spacing);
+        var scale = SlotCornerBadgeDrawer.GetScale(slot, _corner);
+        ImGui.SetNextItemWidth(Math.Max(32f, ImGui.GetContentRegionAvail().X - frameH - spacing));
+        var changed = ImGui.SliderFloat(
+            $"##eqpFaPickerScale{(int)_corner}",
+            ref scale,
+            SlotCornerBadgeDrawer.MinScale,
+            SlotCornerBadgeDrawer.MaxScale,
+            "%.2f");
+        if (changed)
+            slot.SetCornerScale(_corner, scale);
+
+        ImGui.SameLine(0f, spacing);
+        var reset = false;
+        DrawResetButton("##eqpFaPickerScaleReset", style, T("slot.outline.resetDefault"), () =>
+        {
+            slot.ClearCornerScale(_corner);
+            reset = true;
+        });
+
+        if (changed || reset)
+            Config.Save();
     }
 
     private static void DrawSearchRow(
         PanelSlot slot,
         PanelUiStyleConfig style,
-        float width,
         float frameH,
         float spacing)
     {
         var search = _search;
-        ImGui.SetNextItemWidth(Math.Max(32f, width - frameH - spacing));
+        ImGui.SetNextItemWidth(Math.Max(32f, ImGui.GetContentRegionAvail().X - frameH - spacing));
         if (ImGui.InputTextWithHint("##eqpFaPickerSearch", T("faPicker.search"), ref search, 64))
         {
             _search = search;
@@ -151,6 +227,40 @@ internal static class FontAwesomePicker
         }
     }
 
+    private static void DrawRowLabel(string label, float labelWidth, float spacing)
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine(labelWidth + spacing);
+    }
+
+    private static bool DrawChannel(string id, ref float value, float width, string format)
+    {
+        var display = value * 255f;
+        ImGui.SetNextItemWidth(width);
+        var changed = ImGui.DragFloat(id, ref display, 1f, 0f, 255f, format);
+        if (changed)
+            value = display / 255f;
+        return changed;
+    }
+
+    private static void DrawResetButton(string id, PanelUiStyleConfig style, string tooltip, Action onReset)
+    {
+        using (new PanelUiButtonStyleScope(style))
+        {
+            if (CenteredIconButton.Draw(
+                    FontAwesomeIcon.Undo,
+                    id,
+                    new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight()),
+                    style.TextColor,
+                    style.TextHoverColor))
+                onReset();
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(tooltip);
+    }
+
     private static void DrawCornerButtons(
         PanelSlot slot,
         Vector2 previewMin,
@@ -162,7 +272,6 @@ internal static class FontAwesomePicker
         if (slotSize.X < 8f || slotSize.Y < 8f)
             return;
 
-        var fontSize = SlotCornerBadgeDrawer.FontSizeFor(slotSize);
         ImGui.SetCursorScreenPos(previewMin);
         using (ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero))
         using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, Vector2.Zero))
@@ -175,10 +284,8 @@ internal static class FontAwesomePicker
         {
             if (overlay)
             {
-                DrawCornerButton(slot, SlotCorner.TopLeft, slotSize, fontSize, style);
-                DrawCornerButton(slot, SlotCorner.TopRight, slotSize, fontSize, style);
-                DrawCornerButton(slot, SlotCorner.BottomLeft, slotSize, fontSize, style);
-                DrawCornerButton(slot, SlotCorner.BottomRight, slotSize, fontSize, style);
+                foreach (var corner in Enum.GetValues<SlotCorner>())
+                    DrawCornerButton(slot, corner, slotSize, style);
             }
         }
 
@@ -189,26 +296,25 @@ internal static class FontAwesomePicker
         PanelSlot slot,
         SlotCorner corner,
         Vector2 slotSize,
-        float fontSize,
         PanelUiStyleConfig style)
     {
         var locked = false;
-        var lockedTooltipKey = string.Empty;
         if (corner == SlotCorner.BottomRight)
-            locked = SlotCornerBadgeDrawer.TryGetLockedBottomRight(slot, out _, out lockedTooltipKey);
+            locked = SlotCornerBadgeDrawer.TryGetLockedBottomRight(slot, out _);
 
         var hasBadge = SlotCornerBadgeDrawer.TryResolveIcon(slot.GetCornerBadge(corner), out _);
         var hoveringThis = !locked && corner == _corner && _hoverIcon != null;
         var previewShowsIcon = locked || hoveringThis || hasBadge;
 
+        var fontSize = SlotCornerBadgeDrawer.FontSizeFor(slotSize, slot, corner);
         var buttonSize = new Vector2(fontSize, fontSize);
-        var localPos = SlotCornerBadgeDrawer.Position(Vector2.Zero, slotSize, corner, buttonSize);
+        var localPos = SlotCornerBadgeDrawer.Position(Vector2.Zero, slotSize, corner, buttonSize, slot);
         ImGui.SetCursorPos(localPos);
-        if (ImGui.InvisibleButton($"##eqpSlotCorner{corner}", buttonSize) && !locked)
+        if (ImGui.InvisibleButton($"##eqpSlotCorner{corner}", buttonSize))
             _corner = corner;
 
         var hovered = ImGui.IsItemHovered();
-        var selected = !locked && corner == _corner;
+        var selected = corner == _corner;
         var screenPos = ImGui.GetItemRectMin();
         var drawList = ImGui.GetWindowDrawList();
         if (selected)
@@ -237,7 +343,7 @@ internal static class FontAwesomePicker
         }
 
         if (hovered)
-            ImGui.SetTooltip(locked ? T(lockedTooltipKey) : CornerLabel(corner));
+            ImGui.SetTooltip(CornerLabel(corner));
     }
 
     private static void DrawIconGrid(PanelSlot slot, PanelUiStyleConfig style)

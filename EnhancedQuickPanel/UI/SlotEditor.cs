@@ -30,7 +30,7 @@ internal static class SlotEditor
         if (FontAwesomePicker.IsOpenFor(slot))
         {
             using (new PanelUiEditFieldStyleScope(Config.PanelUi))
-                FontAwesomePicker.DrawEmbedded(slot);
+                FontAwesomePicker.DrawEmbedded(slot, slotEditorExpanded);
             return;
         }
 
@@ -72,10 +72,15 @@ internal static class SlotEditor
 
         using (new PanelUiEditFieldStyleScope(style))
         {
-            SlotIconPicker.DrawIconButton(
-                slot,
-                iconButtonSize,
-                interactive: iconInteractive && !cornerOpen && !outlineOpen);
+            if (cornerOpen)
+                FontAwesomePicker.DrawHeaderIcon(slot, iconButtonSize);
+            else
+            {
+                SlotIconPicker.DrawIconButton(
+                    slot,
+                    iconButtonSize,
+                    interactive: iconInteractive && !outlineOpen);
+            }
             ImGui.SameLine(0f, spacing);
 
             var contentWidth = ImGui.GetContentRegionAvail().X;

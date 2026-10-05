@@ -88,6 +88,18 @@ public sealed class PanelSlot
 
     public Vector4 BadgeColor => new(BadgeColorRed, BadgeColorGreen, BadgeColorBlue, BadgeColorAlpha);
 
+    public bool BadgeUseCustomScale { get; set; }
+
+    public float BadgeScale { get; set; } = 1f;
+
+    public SlotCornerLook BadgeTopLeftLook { get; set; } = new();
+
+    public SlotCornerLook BadgeTopRightLook { get; set; } = new();
+
+    public SlotCornerLook BadgeBottomLeftLook { get; set; } = new();
+
+    public SlotCornerLook BadgeBottomRightLook { get; set; } = new();
+
     public bool ShowOutline { get; set; }
 
     public bool OutlineUseCustomColor { get; set; }
@@ -119,6 +131,10 @@ public sealed class PanelSlot
 
     public void Sanitize()
     {
+        BadgeTopLeftLook ??= new();
+        BadgeTopRightLook ??= new();
+        BadgeBottomLeftLook ??= new();
+        BadgeBottomRightLook ??= new();
         SanitizePluginShortcut();
         SanitizeDalamudShortcut();
     }
@@ -177,6 +193,12 @@ public sealed class PanelSlot
         (BadgeColorGreen, other.BadgeColorGreen) = (other.BadgeColorGreen, BadgeColorGreen);
         (BadgeColorBlue, other.BadgeColorBlue) = (other.BadgeColorBlue, BadgeColorBlue);
         (BadgeColorAlpha, other.BadgeColorAlpha) = (other.BadgeColorAlpha, BadgeColorAlpha);
+        (BadgeUseCustomScale, other.BadgeUseCustomScale) = (other.BadgeUseCustomScale, BadgeUseCustomScale);
+        (BadgeScale, other.BadgeScale) = (other.BadgeScale, BadgeScale);
+        (BadgeTopLeftLook, other.BadgeTopLeftLook) = (other.BadgeTopLeftLook, BadgeTopLeftLook);
+        (BadgeTopRightLook, other.BadgeTopRightLook) = (other.BadgeTopRightLook, BadgeTopRightLook);
+        (BadgeBottomLeftLook, other.BadgeBottomLeftLook) = (other.BadgeBottomLeftLook, BadgeBottomLeftLook);
+        (BadgeBottomRightLook, other.BadgeBottomRightLook) = (other.BadgeBottomRightLook, BadgeBottomRightLook);
         (ShowOutline, other.ShowOutline) = (other.ShowOutline, ShowOutline);
         (OutlineUseCustomColor, other.OutlineUseCustomColor) = (other.OutlineUseCustomColor, OutlineUseCustomColor);
         (OutlineColorRed, other.OutlineColorRed) = (other.OutlineColorRed, OutlineColorRed);
@@ -217,15 +239,6 @@ public sealed class PanelSlot
         }
     }
 
-    public void SetBadgeColor(Vector4 color)
-    {
-        BadgeUseCustomColor = true;
-        BadgeColorRed = color.X;
-        BadgeColorGreen = color.Y;
-        BadgeColorBlue = color.Z;
-        BadgeColorAlpha = color.W;
-    }
-
     public void ClearCornerBadges()
     {
         BadgeTopLeft = 0;
@@ -237,7 +250,84 @@ public sealed class PanelSlot
         BadgeColorGreen = 1f;
         BadgeColorBlue = 1f;
         BadgeColorAlpha = 1f;
+        BadgeUseCustomScale = false;
+        BadgeScale = 1f;
+        BadgeTopLeftLook = new();
+        BadgeTopRightLook = new();
+        BadgeBottomLeftLook = new();
+        BadgeBottomRightLook = new();
     }
+
+    public SlotCornerLook GetCornerLook(SlotCorner corner) =>
+        corner switch
+        {
+            SlotCorner.TopLeft => BadgeTopLeftLook ??= new(),
+            SlotCorner.TopRight => BadgeTopRightLook ??= new(),
+            SlotCorner.BottomLeft => BadgeBottomLeftLook ??= new(),
+            _ => BadgeBottomRightLook ??= new(),
+        };
+
+    public void SetCornerColor(SlotCorner corner, Vector4 color)
+    {
+        PromoteSlotColorToCorners();
+        GetCornerLook(corner).SetColor(color);
+    }
+
+    public void ClearCornerColor(SlotCorner corner)
+    {
+        PromoteSlotColorToCorners();
+        GetCornerLook(corner).ClearColor();
+    }
+
+    public void SetCornerScale(SlotCorner corner, float scale)
+    {
+        PromoteSlotScaleToCorners();
+        GetCornerLook(corner).SetScale(scale);
+    }
+
+    public void ClearCornerScale(SlotCorner corner)
+    {
+        PromoteSlotScaleToCorners();
+        GetCornerLook(corner).ClearScale();
+    }
+
+    private void PromoteSlotColorToCorners()
+    {
+        if (!BadgeUseCustomColor)
+            return;
+
+        foreach (var corner in Enum.GetValues<SlotCorner>())
+        {
+            if (SkipWrenchColorPromote(corner))
+                continue;
+
+            var look = GetCornerLook(corner);
+            if (!look.UseCustomColor)
+                look.SetColor(BadgeColor);
+        }
+
+        BadgeUseCustomColor = false;
+    }
+
+    private void PromoteSlotScaleToCorners()
+    {
+        if (!BadgeUseCustomScale)
+            return;
+
+        foreach (var corner in Enum.GetValues<SlotCorner>())
+        {
+            var look = GetCornerLook(corner);
+            if (!look.UseCustomScale)
+                look.SetScale(BadgeScale);
+        }
+
+        BadgeUseCustomScale = false;
+    }
+
+    private bool SkipWrenchColorPromote(SlotCorner corner) =>
+        corner == SlotCorner.BottomRight
+        && Kind == PanelSlotKind.Plugin
+        && BadgeBottomRight == 0;
 
     public void SetOutlineColor(Vector4 color)
     {
@@ -305,6 +395,59 @@ public sealed class PanelSlot
             "/xllog" => DalamudShortcutKind.Log,
             _ => DalamudShortcutKind.Plugins,
         };
+}
+
+public sealed class SlotCornerLook
+{
+    public const float MinScale = 0.5f;
+
+    public const float MaxScale = 2f;
+
+    public bool UseCustomColor { get; set; }
+
+    public float ColorRed { get; set; } = 1f;
+
+    public float ColorGreen { get; set; } = 1f;
+
+    public float ColorBlue { get; set; } = 1f;
+
+    public float ColorAlpha { get; set; } = 1f;
+
+    public Vector4 Color => new(ColorRed, ColorGreen, ColorBlue, ColorAlpha);
+
+    public bool UseCustomScale { get; set; }
+
+    public float Scale { get; set; } = 1f;
+
+    public void SetColor(Vector4 color)
+    {
+        UseCustomColor = true;
+        ColorRed = color.X;
+        ColorGreen = color.Y;
+        ColorBlue = color.Z;
+        ColorAlpha = color.W;
+    }
+
+    public void ClearColor()
+    {
+        UseCustomColor = false;
+        ColorRed = 1f;
+        ColorGreen = 1f;
+        ColorBlue = 1f;
+        ColorAlpha = 1f;
+    }
+
+    public void SetScale(float scale)
+    {
+        UseCustomScale = true;
+        Scale = Math.Clamp(scale, MinScale, MaxScale);
+    }
+
+    public void ClearScale()
+    {
+        UseCustomScale = false;
+        Scale = 1f;
+    }
 }
 
 public sealed class PanelPage

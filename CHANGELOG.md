@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.1.0] - 2026-10-05
+
+### Changed
+
+- Corner-icon editing uses the header slot icon for preview and corner selection. Color and size can be set per corner, including locked Dalamud type marks and the Dev wrench. Those marks cannot be replaced, and the icon list is hidden while they are selected
+
 ## [1.1.0.0] - 2026-10-05
 
 ### Added
@@ -167,7 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 Customizable quick panel overlay with pages, native import, and style presets.
 
-[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.1.0.0...HEAD
+[Unreleased]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.1.1.0...HEAD
+[1.1.1.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.1.0.0...v1.1.1.0
 [1.1.0.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.14.0...v1.1.0.0
 [1.0.14.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.13.0...v1.0.14.0
 [1.0.13.0]: https://github.com/exatrines/EnhancedQuickPanel/compare/v1.0.12.0...v1.0.13.0
