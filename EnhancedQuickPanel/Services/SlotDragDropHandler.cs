@@ -3,6 +3,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.Sheets;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -490,6 +491,16 @@ internal static unsafe class SlotDragDropHandler
             case DragDropType.ActionBar_FieldMarker:
                 return (RaptureHotbarModule.HotbarSlotType.FieldMarker, (uint)Math.Max(0, snapshot.Int2));
 
+            case DragDropType.EventItem:
+            case DragDropType.ActionBar_EventItem:
+                return default;
+
+            case DragDropType.McGuffin:
+            case DragDropType.ActionBar_McGuffin:
+                return (
+                    RaptureHotbarModule.HotbarSlotType.McGuffin,
+                    ResolveMcGuffinCommandId(snapshot.Int1, snapshot.Int2));
+
             default:
                 var slotType = UIGlobals.GetHotbarSlotTypeFromDragDropType(snapshot.DragType);
                 if (slotType == RaptureHotbarModule.HotbarSlotType.Empty)
@@ -528,6 +539,17 @@ internal static unsafe class SlotDragDropHandler
         type = RaptureHotbarModule.HotbarSlotType.Empty;
         commandId = 0;
 
+        if (InventorySlotHelper.IsEventItemDragType(snapshot.DragType))
+        {
+            return InventorySlotHelper.TryResolveDraggedEventItem(
+                snapshot.DragType,
+                snapshot.Int1,
+                snapshot.Int2,
+                snapshot.ReferenceIndex,
+                out type,
+                out commandId);
+        }
+
         if (TryResolveInventoryDragFromUi(snapshot, out type, out commandId))
             return true;
 
@@ -541,8 +563,6 @@ internal static unsafe class SlotDragDropHandler
             case DragDropType.Inventory_Crystal:
             case DragDropType.Item:
             case DragDropType.ActionBar_Item:
-            case DragDropType.EventItem:
-            case DragDropType.ActionBar_EventItem:
                 if (InventorySlotHelper.TryResolveDraggedInventoryItem(
                         snapshot.DragType,
                         snapshot.Int1,
@@ -598,9 +618,7 @@ internal static unsafe class SlotDragDropHandler
             or DragDropType.Inventory_Item
             or DragDropType.RemoteInventory_Item
             or DragDropType.Inventory_Crystal
-            or DragDropType.ActionBar_Item
-            or DragDropType.EventItem
-            or DragDropType.ActionBar_EventItem))
+            or DragDropType.ActionBar_Item))
             return false;
 
         var stage = AtkStage.Instance();
@@ -661,6 +679,21 @@ internal static unsafe class SlotDragDropHandler
         return HotbarCommand.IsAssigned(type, commandId);
     }
 
+    private static uint ResolveMcGuffinCommandId(int int1, int int2)
+    {
+        if (int2 > 0 && HasMcGuffinRow((uint)int2))
+            return (uint)int2;
+
+        if (int1 > 0 && HasMcGuffinRow((uint)int1))
+            return (uint)int1;
+
+        return (uint)Math.Max(0, int2);
+    }
+
+    private static bool HasMcGuffinRow(uint rowId) =>
+        rowId != 0
+        && PluginServices.Data.GetExcelSheet<McGuffin>()?.GetRowOrDefault(rowId) != null;
+
     private static bool IsActionBarDragType(DragDropType dragType) =>
         dragType is >= DragDropType.ActionBar_Macro and <= DragDropType.ActionBar_Glasses
             or DragDropType.ActionBar;
@@ -670,6 +703,7 @@ internal static unsafe class SlotDragDropHandler
             or DragDropType.Action
             or DragDropType.Macro
             or DragDropType.EventItem
+            or DragDropType.McGuffin
             or DragDropType.Marker
             or DragDropType.FieldMarker
             or DragDropType.Inventory_Item
@@ -678,6 +712,7 @@ internal static unsafe class SlotDragDropHandler
             or DragDropType.ActionBar_Action
             or DragDropType.ActionBar_Macro
             or DragDropType.ActionBar_EventItem
+            or DragDropType.ActionBar_McGuffin
             or DragDropType.ActionBar_Marker
             or DragDropType.ActionBar_FieldMarker
             or DragDropType.Emote

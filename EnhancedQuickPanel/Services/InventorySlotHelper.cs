@@ -1,6 +1,8 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.Sheets;
 
 namespace EnhancedQuickPanel.Services;
 
@@ -63,7 +65,10 @@ internal static unsafe class InventorySlotHelper
         if (commandId == 0)
             return false;
 
-        if (type is RaptureHotbarModule.HotbarSlotType.Item or RaptureHotbarModule.HotbarSlotType.EventItem)
+        if (type == RaptureHotbarModule.HotbarSlotType.EventItem)
+            return false;
+
+        if (type == RaptureHotbarModule.HotbarSlotType.Item)
             return commandId >= HqItemIdOffset;
 
         if (type is not (RaptureHotbarModule.HotbarSlotType.InventoryItem
@@ -82,7 +87,56 @@ internal static unsafe class InventorySlotHelper
         if (baseItemId == 0 || !GameModuleGuard.TryGetInventory(out var inventory))
             return 0;
 
+        if (HasEventItemRow(baseItemId))
+            return GetEventItemCount(baseItemId);
+
         return inventory->GetInventoryItemCount(baseItemId, isHq);
+    }
+
+    public static int GetEventItemCount(uint eventItemId)
+    {
+        TryFindEventItem(eventItemId, out _, out var quantity);
+        return quantity;
+    }
+
+    public static bool TryUseEventItem(uint eventItemId)
+    {
+        if (!TryFindEventItem(eventItemId, out var slotIndex, out var quantity) || quantity <= 0)
+            return false;
+
+        var agent = AgentInventoryContext.Instance();
+        if (agent == null)
+            return false;
+
+        agent->UseItem(eventItemId, InventoryType.KeyItems, (uint)slotIndex);
+        return true;
+    }
+
+    private static bool TryFindEventItem(uint eventItemId, out int slotIndex, out int quantity)
+    {
+        slotIndex = -1;
+        quantity = 0;
+        if (eventItemId == 0 || !GameModuleGuard.TryGetInventory(out var inventory))
+            return false;
+
+        var maxSlot = GetMaxSlotIndexForContainer(InventoryType.KeyItems);
+        for (var slot = 0; slot <= maxSlot; slot++)
+        {
+            var inventoryItem = ResolveSymbolicInventoryItem(
+                inventory->GetInventorySlot(InventoryType.KeyItems, slot));
+            if (inventoryItem == null || inventoryItem->IsEmpty())
+                continue;
+
+            if (inventoryItem->GetBaseItemId() != eventItemId
+                && inventoryItem->GetItemId() != eventItemId)
+                continue;
+
+            if (slotIndex < 0)
+                slotIndex = slot;
+            quantity += (int)inventoryItem->GetQuantity();
+        }
+
+        return slotIndex >= 0;
     }
 
     public static bool TryResolveDraggedInventoryItem(
@@ -540,7 +594,40 @@ internal static unsafe class InventorySlotHelper
         if (!TryInventorySlotHasItem(container, slotIndex, expectedItemId: null, out var itemId))
             return false;
 
+        if (container == InventoryType.KeyItems)
+            return TryResolveEventItemHotbarCommand(itemId, out slotType, out commandId);
+
         return TryResolveItemHotbarCommand(itemId, out slotType, out commandId);
+    }
+
+    public static bool TryResolveDraggedEventItem(
+        DragDropType dragType,
+        int int1,
+        int int2,
+        short referenceIndex,
+        out RaptureHotbarModule.HotbarSlotType slotType,
+        out uint commandId)
+    {
+        slotType = RaptureHotbarModule.HotbarSlotType.Empty;
+        commandId = 0;
+
+        if (!IsEventItemDragType(dragType))
+            return false;
+
+        if (TryResolveDraggedInventoryItem(dragType, int1, int2, referenceIndex, out slotType, out commandId)
+            && slotType == RaptureHotbarModule.HotbarSlotType.EventItem)
+            return true;
+
+        foreach (var rawId in (ReadOnlySpan<int>)[int2, int1])
+        {
+            if (!LooksLikeDirectItemId(rawId) || IsKeyItemsInventoryType(rawId))
+                continue;
+
+            if (TryResolveEventItemHotbarCommand((uint)rawId, out slotType, out commandId))
+                return true;
+        }
+
+        return false;
     }
 
     public static bool TryResolveItemHotbarCommand(
@@ -548,6 +635,9 @@ internal static unsafe class InventorySlotHelper
         out RaptureHotbarModule.HotbarSlotType slotType,
         out uint commandId)
     {
+        if (TryResolveEventItemHotbarCommand(itemId, out slotType, out commandId))
+            return true;
+
         slotType = RaptureHotbarModule.HotbarSlotType.Empty;
         commandId = 0;
 
@@ -573,6 +663,21 @@ internal static unsafe class InventorySlotHelper
             PluginServices.Log.Debug($"[EQP] Item hotbar resolve failed (#{itemId}): {ex.Message}");
             return false;
         }
+    }
+
+    private static bool TryResolveEventItemHotbarCommand(
+        uint itemId,
+        out RaptureHotbarModule.HotbarSlotType slotType,
+        out uint commandId)
+    {
+        slotType = RaptureHotbarModule.HotbarSlotType.Empty;
+        commandId = 0;
+        if (!HasEventItemRow(itemId))
+            return false;
+
+        slotType = RaptureHotbarModule.HotbarSlotType.EventItem;
+        commandId = itemId;
+        return true;
     }
 
     public static bool TryResolveInventoryLinkedCommand(
@@ -657,6 +762,13 @@ internal static unsafe class InventorySlotHelper
             yield break;
         }
 
+        if (IsEventItemDragType(dragType))
+        {
+            foreach (var candidate in EnumerateKeyItemLocationCandidates(int1, int2, referenceIndex))
+                yield return candidate;
+            yield break;
+        }
+
         foreach (var candidate in EnumerateMainBagCandidates(int1, int2, referenceIndex))
             yield return candidate;
 
@@ -674,12 +786,33 @@ internal static unsafe class InventorySlotHelper
 
         if (IsPlausibleSlotIndex(int2))
             yield return new InventoryLocationCandidate(InventoryType.Crystals, int2, null);
+    }
 
-        if (IsPlausibleSlotIndex(int2))
-            yield return new InventoryLocationCandidate(InventoryType.KeyItems, int2, null);
+    private static IEnumerable<InventoryLocationCandidate> EnumerateKeyItemLocationCandidates(
+        int int1,
+        int int2,
+        short referenceIndex)
+    {
+        foreach (var slot in EnumeratePlausibleSlotIndices(int2, referenceIndex, InventoryType.KeyItems))
+            yield return new InventoryLocationCandidate(InventoryType.KeyItems, slot, null);
 
-        if (referenceIndex >= 0 && IsPlausibleSlotIndex(referenceIndex))
-            yield return new InventoryLocationCandidate(InventoryType.KeyItems, referenceIndex, null);
+        if (LooksLikeDirectItemId(int2) && !IsKeyItemsInventoryType(int2)
+            && referenceIndex >= 0 && IsPlausibleSlotIndex(referenceIndex, InventoryType.KeyItems))
+        {
+            yield return new InventoryLocationCandidate(
+                InventoryType.KeyItems,
+                referenceIndex,
+                (uint)int2);
+        }
+
+        if (LooksLikeDirectItemId(int1) && !IsKeyItemsInventoryType(int1)
+            && referenceIndex >= 0 && IsPlausibleSlotIndex(referenceIndex, InventoryType.KeyItems))
+        {
+            yield return new InventoryLocationCandidate(
+                InventoryType.KeyItems,
+                referenceIndex,
+                (uint)int1);
+        }
     }
 
     private static IEnumerable<InventoryLocationCandidate> EnumerateMainBagCandidates(
@@ -796,6 +929,16 @@ internal static unsafe class InventorySlotHelper
         || IsSaddleBagInventoryType(value)
         || IsArmoryInventoryType(value)
         || IsRetainerPageInventoryType(value);
+
+    private static bool IsKeyItemsInventoryType(int value) =>
+        value == (int)InventoryType.KeyItems;
+
+    internal static bool IsEventItemDragType(DragDropType dragType) =>
+        dragType is DragDropType.EventItem or DragDropType.ActionBar_EventItem;
+
+    private static bool HasEventItemRow(uint itemId) =>
+        itemId != 0
+        && PluginServices.Data.GetExcelSheet<EventItem>()?.GetRowOrDefault(itemId) != null;
 
     internal static int GetMaxSlotIndexForContainer(InventoryType container)
     {

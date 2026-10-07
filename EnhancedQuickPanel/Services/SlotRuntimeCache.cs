@@ -124,6 +124,13 @@ internal static unsafe class SlotRuntimeCache
                     icon,
                     appearance)
                 : 0;
+
+            if (type == RaptureHotbarModule.HotbarSlotType.EventItem)
+            {
+                quantity = InventorySlotHelper.GetEventItemCount(commandId);
+                isUsable = quantity > 0
+                    && scratch.IsSlotUsable(RaptureHotbarModule.HotbarSlotType.EventItem, commandId);
+            }
             var (showCharges, charges) = SlotChargeResolver.Resolve(scratch, appearance, type);
             var state = new SlotRuntimeState(isUsable, cooldown, quantity, showCharges, charges);
             var hasRecast = SlotCooldownResolver.TryGetRecastTarget(scratch, out var recastType, out var recastId);

@@ -162,9 +162,12 @@ internal static unsafe class SlotTooltipResolver
         {
             return type switch
             {
-                RaptureHotbarModule.HotbarSlotType.Item
-                    or RaptureHotbarModule.HotbarSlotType.EventItem =>
+                RaptureHotbarModule.HotbarSlotType.Item =>
                     ResolveItemTooltip(commandId),
+                RaptureHotbarModule.HotbarSlotType.EventItem =>
+                    GetSheetName<EventItem>(commandId, row => row.Name.ToString()),
+                RaptureHotbarModule.HotbarSlotType.McGuffin =>
+                    ResolveMcGuffinTooltip(commandId),
                 RaptureHotbarModule.HotbarSlotType.InventoryItem
                     or RaptureHotbarModule.HotbarSlotType.Crystal
                     or RaptureHotbarModule.HotbarSlotType.KeyItem =>
@@ -230,15 +233,26 @@ internal static unsafe class SlotTooltipResolver
 
     private static string ResolveItemTooltip(uint commandId)
     {
+        var eventName = GetSheetName<EventItem>(commandId, row => row.Name.ToString());
+        if (!string.IsNullOrWhiteSpace(eventName))
+            return eventName;
+
         var (baseItemId, isHq) = InventorySlotHelper.DecodeItemId(commandId);
         if (baseItemId == 0)
             return string.Empty;
 
         var itemName = GetSheetName<Item>(baseItemId, row => row.Name.ToString());
-        if (!string.IsNullOrWhiteSpace(itemName))
-            return isHq ? $"{itemName} HQ" : itemName;
+        if (string.IsNullOrWhiteSpace(itemName))
+            return string.Empty;
 
-        return GetSheetName<EventItem>(baseItemId, row => row.Name.ToString());
+        return isHq ? $"{itemName} HQ" : itemName;
+    }
+
+    private static string ResolveMcGuffinTooltip(uint commandId)
+    {
+        var row = PluginServices.Data.GetExcelSheet<McGuffin>()?.GetRowOrDefault(commandId);
+        var ui = row?.UIData.ValueNullable;
+        return ui == null ? string.Empty : ui.Value.Name.ToString().Trim();
     }
 
     private static string ResolveGearSetTooltip(uint commandId)

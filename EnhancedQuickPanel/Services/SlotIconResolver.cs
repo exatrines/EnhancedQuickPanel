@@ -132,6 +132,10 @@ internal static unsafe class SlotIconResolver
 
     private static ResolvedSlotIcon ResolveInventoryLinkedIconFromItemCommand(uint commandId)
     {
+        var eventIconId = GetEventItemRowIcon(commandId);
+        if (eventIconId != 0)
+            return new ResolvedSlotIcon(eventIconId, false);
+
         var (baseItemId, isHq) = InventorySlotHelper.DecodeItemId(commandId);
         if (baseItemId == 0)
             return ResolvedSlotIcon.Empty;
@@ -326,7 +330,7 @@ internal static unsafe class SlotIconResolver
         try
         {
             uint iconId;
-            if (type is RaptureHotbarModule.HotbarSlotType.Item or RaptureHotbarModule.HotbarSlotType.EventItem)
+            if (type == RaptureHotbarModule.HotbarSlotType.Item)
             {
                 iconId = GetItemRowIcon(commandId, out var decodedHq);
                 isHq |= decodedHq;
@@ -335,6 +339,8 @@ internal static unsafe class SlotIconResolver
             {
                 iconId = type switch
                 {
+                    RaptureHotbarModule.HotbarSlotType.EventItem =>
+                        GetEventItemRowIcon(commandId),
                     RaptureHotbarModule.HotbarSlotType.Action =>
                         GetRowIcon<GameAction>(commandId, row => (uint)row.Icon),
                     RaptureHotbarModule.HotbarSlotType.CraftAction =>
@@ -355,6 +361,8 @@ internal static unsafe class SlotIconResolver
                         GetRowIcon<Marker>(commandId, row => (uint)row.Icon),
                     RaptureHotbarModule.HotbarSlotType.FieldMarker =>
                         GetRowIcon<Lumina.Excel.Sheets.FieldMarker>(commandId, row => (uint)row.UiIcon),
+                    RaptureHotbarModule.HotbarSlotType.McGuffin =>
+                        GetMcGuffinRowIcon(commandId),
                     _ => 0u,
                 };
             }
@@ -373,6 +381,20 @@ internal static unsafe class SlotIconResolver
         var (baseItemId, decodedHq) = InventorySlotHelper.DecodeItemId(commandId);
         isHq = decodedHq;
         return GetRowIcon<Item>(baseItemId, row => (uint)row.Icon);
+    }
+
+    private static uint GetEventItemRowIcon(uint commandId) =>
+        GetRowIcon<EventItem>(commandId, row => (uint)row.Icon);
+
+    private static uint GetMcGuffinRowIcon(uint commandId)
+    {
+        var row = PluginServices.Data.GetExcelSheet<McGuffin>()?.GetRowOrDefault(commandId);
+        var ui = row?.UIData.ValueNullable;
+        if (ui == null)
+            return 0;
+
+        var iconId = (uint)ui.Value.Icon;
+        return IsLoadableIcon(iconId) ? iconId : 0;
     }
 
     private static uint GetRowIcon<T>(uint commandId, Func<T, uint> getIcon) where T : struct, Lumina.Excel.IExcelRow<T>

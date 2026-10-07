@@ -11,6 +11,15 @@ internal static class SlotExecutor
         if (!HotbarCommand.IsAssigned(type, commandId))
             return;
 
+        if (type == RaptureHotbarModule.HotbarSlotType.EventItem)
+        {
+            if (!SlotRuntimeCache.Get(type, commandId, ResolvedSlotIcon.Empty).IsUsable)
+                return;
+
+            if (InventorySlotHelper.TryUseEventItem(commandId))
+                return;
+        }
+
         HotbarScratchSlot.TryExecute(type, commandId);
     }
 

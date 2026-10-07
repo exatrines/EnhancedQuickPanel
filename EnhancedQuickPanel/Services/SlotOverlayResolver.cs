@@ -62,7 +62,9 @@ internal static unsafe class SlotOverlayResolver
         }
 
         var itemGrayedOut = runtime.ItemQuantity <= 0 || !runtime.IsUsable;
-        return new SlotOverlayInfo(true, runtime.ItemQuantity, itemGrayedOut, showMacro);
+        var showQuantity = type != RaptureHotbarModule.HotbarSlotType.EventItem
+            || runtime.ItemQuantity != 1;
+        return new SlotOverlayInfo(showQuantity, runtime.ItemQuantity, itemGrayedOut, showMacro);
     }
 
     internal static int ResolveItemQuantityScratch(
