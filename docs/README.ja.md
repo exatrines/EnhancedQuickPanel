@@ -1,14 +1,34 @@
-# Enhanced Quick Panel
+<p align="center">
+  <img src="../EnhancedQuickPanel/Data/plugin-icon.png" alt="Enhanced Quick Panel アイコン" width="128" height="128">
+</p>
 
-[English](README.md)
+<h1 align="center">Enhanced Quick Panel</h1>
 
-![クイックパネルのオーバーレイ](docs/screenshots/en/overlay.png)
+<p align="center">
+  <a href="../README.md">English</a> | 日本語
+</p>
+
+<p align="center">
+  <a href="https://github.com/exatrines/EnhancedQuickPanel/releases/latest">
+    <img src="https://img.shields.io/github/v/release/exatrines/EnhancedQuickPanel?label=Release&amp;labelColor=F280B6&amp;color=FFFFFF&amp;style=flat&amp;sort=date&amp;display_name=tag" alt="Release">
+  </a>
+  <a href="../CHANGELOG.md">
+    <img src="https://img.shields.io/badge/Changelog-view-FFFFFF?labelColor=F280B6&amp;style=flat" alt="Changelog">
+  </a>
+  <a href="../LICENSE">
+    <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-FFFFFF?labelColor=F280B6&amp;style=flat" alt="AGPL-3.0-or-later">
+  </a>
+</p>
+
+<p align="center">
+  <img src="screenshots/en/hero-1280x720.png" alt="クイックパネルのオーバーレイ">
+</p>
 
 Enhanced Quick Panel は、ゲーム標準のネイティブクイックパネルの代わりに、カスタマイズ可能なオーバーレイを表示する Dalamud プラグインです。
 
 スロットにはアクション・アイテム・マクロ・テキストコマンドを置けます。複数ページに分けて整理し、見た目も変えられます。編集中はホットバーやインベントリからドラッグできます。任意で、`/quickpanel` 実行時にネイティブパネルの代わりにオーバーレイを出せます。
 
-設定画面のスクショや編集手順は [詳細マニュアル](document.ja.md) を参照してください。
+設定画面のスクショや編集手順は [詳細マニュアル](document.en.md) を参照してください。
 
 ## インストール
 
@@ -45,12 +65,13 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 ## 開発者向け
 
-1. ビルド: `dotnet build EnhancedQuickPanel.sln -c Release -p:Platform=x64`
-2. Dalamud の **dev plugin** に `EnhancedQuickPanel/bin/Release/` を指定する
-3. プラグインインストーラ（dev）で **Enhanced Quick Panel** を有効にする
+1. `git submodule update --init --recursive`
+2. ビルド: `dotnet build EnhancedQuickPanel.sln -c Release -p:Platform=x64`
+3. Dalamud の **dev plugin** に `EnhancedQuickPanel/bin/Release/` を指定する
+4. プラグインインストーラ（dev）で **Enhanced Quick Panel** を有効にする
 
 共有 UI キットの [MirageUI](https://github.com/exatrines/MirageUI) を git サブモジュールとして同梱しています。
 
-## ライセンス
+## コントリビューション
 
-[AGPL-3.0-or-later](LICENSE)
+コントリビューションは大歓迎です！[貢献ガイド](../CONTRIBUTING.md)をご覧ください。

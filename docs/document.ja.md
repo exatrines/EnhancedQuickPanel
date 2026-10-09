@@ -6,7 +6,7 @@ FFXIV用のカスタマイズ可能なクイックパネルオーバーレイ（
 
 ゲーム標準のネイティブクイックパネルの代わりにオーバーレイを表示し、アクション・アイテム・マクロ・テキストコマンドを自由に配置したパネルを作成することができます。
 
-<img src=docs/screenshots/ja/overlay.png style='display: block; margin: auto; max-width: 600px'>
+<img src=screenshots/ja/overlay.png style='display: block; margin: auto; max-width: 600px'>
 
 ## 機能
 
@@ -47,7 +47,7 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 - スロット同士をドラッグして入れ替える。
 - サイドパネルからページの追加・名前変更・削除・並べ替えを行う。
 
-<img src=docs/screenshots/ja/edit-mode.png style='display: block; margin: auto; max-width: 600px'>
+<img src=screenshots/ja/edit-mode.png style='display: block; margin: auto; max-width: 600px'>
 
 ## カスタマイズ
 
@@ -67,8 +67,8 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 <table style='display: block; margin: auto; max-width: 800px'>
     <tr>
-        <td><img src=docs/screenshots/ja/settings.png></td>
-        <td><img src=docs/screenshots/ja/style.png></td>
+        <td><img src=screenshots/ja/settings.png></td>
+        <td><img src=screenshots/ja/style.png></td>
     </tr>
 </table>
 
@@ -85,7 +85,7 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 - **折り畳む／展開** – オーバーレイを展開ボタンだけに畳むか、パネルを戻します。専用ボタンでも同じ状態を切り替えます。
 - **閉じる** – オーバーレイを非表示にします。
 
-<img src=docs/screenshots/ja/contextmenu.png style='display: block; margin: auto; max-width: 600px'>
+<img src=screenshots/ja/contextmenu.png style='display: block; margin: auto; max-width: 600px'>
 
 ### アイコン選択画面
 
@@ -93,8 +93,8 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 <table style='display: block; margin: auto; max-width: 800px'>
     <tr>
-        <td><img src=docs/screenshots/ja/icon-picker.png></td>
-        <td><img src=docs/screenshots/ja/icon-picker-custom.png></td>
+        <td><img src=screenshots/ja/icon-picker.png></td>
+        <td><img src=screenshots/ja/icon-picker-custom.png></td>
     </tr>
 </table>
 
@@ -102,7 +102,7 @@ https://raw.githubusercontent.com/exatrines/DalamudPlugins/refs/heads/main/plugi
 
 ネイティブクイックパネルインポート画面では、FFXIV 標準の 5×5 クイックパネルから新しいページを作成できます。内容は左上に入り、今のパネルサイズは変わりません。
 
-<img src=docs/screenshots/ja/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
+<img src=screenshots/ja/import-native-panel.png style='display: block; margin: auto; max-width: 600px'>
 
 ### プラグインショートカットと折り畳み
 

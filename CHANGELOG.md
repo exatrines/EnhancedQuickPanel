@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- README and related project documentation now follow the public plugin layout
+
 ## [1.2.0.0] - 2026-10-07
 
 ### Added
